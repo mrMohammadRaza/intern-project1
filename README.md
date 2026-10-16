@@ -122,7 +122,7 @@ cp .env.example .env
 Your `.env` file will look like:
 ```env
 PORT=3000
-JWT_SECRET=shopeasy_jwt_secure_secret_token_key_2026_xyz987
+JWT_SECRET=replace_with_a_long_random_secret
 JWT_EXPIRES_IN=1d
 DATABASE_PATH=./server/shopeasy.db
 NODE_ENV=development
@@ -133,6 +133,7 @@ NODE_ENV=development
 > ```bash
 > node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 > ```
+> **Credential Rotation Notice:** For staging or production deployments, generate a fresh unique secret and rotate all default development passwords. Never reuse local testing secrets in production.
 
 ### Step 4: Initialize and Seed the SQLite Database
 Run the automated seed runner:

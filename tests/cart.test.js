@@ -99,4 +99,23 @@ describe('Shopping Cart API Tests', () => {
 
         expect(res.status).toBe(200);
     });
+
+    test('POST /api/cart - Rejects non-existent product ID (404)', async () => {
+        const res = await request(app)
+            .post('/api/cart')
+            .set('Authorization', `Bearer ${customerToken}`)
+            .send({ product_id: 999999, quantity: 1 });
+
+        expect(res.status).toBe(404);
+        expect(res.body.error).toMatch(/product not found/i);
+    });
+
+    test('POST /api/cart - Rejects zero or negative quantity (400)', async () => {
+        const res = await request(app)
+            .post('/api/cart')
+            .set('Authorization', `Bearer ${customerToken}`)
+            .send({ product_id: 1, quantity: 0 });
+
+        expect(res.status).toBe(400);
+    });
 });

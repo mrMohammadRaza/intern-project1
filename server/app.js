@@ -54,6 +54,9 @@ app.use((err, req, res, next) => {
 // Start listening if not running in test mode
 const PORT = process.env.PORT || 3000;
 if (process.env.NODE_ENV !== 'test') {
+    if (!process.env.JWT_SECRET) {
+        console.warn('⚠️  SECURITY WARNING: JWT_SECRET is not configured! Please define it in your .env file.');
+    }
     app.listen(PORT, () => {
         console.log(`====================================================`);
         console.log(`  ShopEasy E-Commerce Server is running!`);

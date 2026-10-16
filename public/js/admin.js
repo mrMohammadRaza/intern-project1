@@ -399,3 +399,134 @@ async function updateOrderStatus(orderId, newStatus) {
         loadAdminOrders();
     }
 }
+
+/**
+ * ----------------------------------------------------
+ * Admin Categories Management Modal & CRUD
+ * ----------------------------------------------------
+ */
+async function openCategoriesModal() {
+    const modal = document.getElementById('categories-modal');
+    if (modal) modal.classList.add('open');
+    await renderCategoriesModalTable();
+}
+
+function closeCategoriesModal() {
+    const modal = document.getElementById('categories-modal');
+    if (modal) modal.classList.remove('open');
+}
+
+async function renderCategoriesModalTable() {
+    const tbody = document.getElementById('admin-categories-tbody');
+    if (!tbody) return;
+
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:1.5rem;">⏳ Loading categories...</td></tr>`;
+
+    try {
+        const data = await apiFetch('/categories');
+        const categories = data.categories || [];
+        adminCategoriesList = categories;
+
+        if (categories.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:1.5rem;">No categories found.</td></tr>`;
+            return;
+        }
+
+        let html = '';
+        categories.forEach(cat => {
+            html += `
+                <tr>
+                    <td><strong>#${cat.id}</strong></td>
+                    <td><strong>${escapeHtml(cat.name)}</strong></td>
+                    <td><span class="status-badge status-placed">${cat.product_count} active product(s)</span></td>
+                    <td style="text-align:right;">
+                        <div style="display:inline-flex; gap:0.5rem;">
+                            <button class="btn btn-outline btn-sm" onclick="handleEditCategory(${cat.id}, '${escapeHtml(cat.name)}')">
+                                ✏️ Edit
+                            </button>
+                            <button class="btn btn-danger btn-sm" onclick="handleDeleteCategory(${cat.id}, '${escapeHtml(cat.name)}')">
+                                🗑️ Delete
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+
+        tbody.innerHTML = html;
+
+        // Also refresh product modal category dropdown
+        const catSelect = document.getElementById('product-category-input');
+        if (catSelect) {
+            let optionsHtml = '<option value="">Select Category</option>';
+            categories.forEach(c => {
+                optionsHtml += `<option value="${c.id}">${escapeHtml(c.name)}</option>`;
+            });
+            catSelect.innerHTML = optionsHtml;
+        }
+    } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--danger); padding:1.5rem;">${escapeHtml(err.message)}</td></tr>`;
+    }
+}
+
+async function handleCreateCategory(event) {
+    event.preventDefault();
+    const input = document.getElementById('new-category-name');
+    const name = input ? input.value.trim() : '';
+
+    if (!name) {
+        showToast('Category name cannot be empty.', 'error');
+        return;
+    }
+
+    try {
+        const result = await apiFetch('/categories', {
+            method: 'POST',
+            body: JSON.stringify({ name })
+        });
+
+        showToast(result.message || 'Category created successfully.', 'success');
+        if (input) input.value = '';
+        await renderCategoriesModalTable();
+    } catch (err) {
+        showToast(err.message || 'Failed to create category.', 'error');
+    }
+}
+
+async function handleEditCategory(categoryId, currentName) {
+    const newName = prompt(`Enter new name for category "${currentName}":`, currentName);
+    if (!newName || newName.trim() === '' || newName.trim() === currentName) {
+        return;
+    }
+
+    try {
+        const result = await apiFetch(`/categories/${categoryId}`, {
+            method: 'PUT',
+            body: JSON.stringify({ name: newName.trim() })
+        });
+
+        showToast(result.message || 'Category updated.', 'success');
+        await renderCategoriesModalTable();
+        await loadAdminProductsTable();
+    } catch (err) {
+        showToast(err.message || 'Failed to update category.', 'error');
+    }
+}
+
+async function handleDeleteCategory(categoryId, categoryName) {
+    if (!confirm(`Are you sure you want to delete category "${categoryName}"? (Deletion will be safely rejected if products are assigned).`)) {
+        return;
+    }
+
+    try {
+        const result = await apiFetch(`/categories/${categoryId}`, {
+            method: 'DELETE'
+        });
+
+        showToast(result.message || 'Category deleted.', 'info');
+        await renderCategoriesModalTable();
+        await loadAdminProductsTable();
+    } catch (err) {
+        showToast(err.message || 'Failed to delete category.', 'error');
+    }
+}

@@ -129,4 +129,51 @@ describe('Authentication API Tests', () => {
         expect(res.body).toHaveProperty('stats');
         expect(res.body.stats).toHaveProperty('total_products');
     });
+
+    test('GET /api/auth/me - Rejects invalid/malformed token signature (401)', async () => {
+        const res = await request(app)
+            .get('/api/auth/me')
+            .set('Authorization', 'Bearer invalid.tampered.token');
+
+        expect(res.status).toBe(401);
+        expect(res.body.error).toMatch(/invalid or malformed token/i);
+    });
+
+    test('GET /api/auth/me - Rejects authorization header without Bearer prefix (401)', async () => {
+        const res = await request(app)
+            .get('/api/auth/me')
+            .set('Authorization', 'Basic 123456');
+
+        expect(res.status).toBe(401);
+        expect(res.body.error).toMatch(/Bearer/i);
+    });
+
+    test('POST /api/auth/register - Rejects invalid email format (400)', async () => {
+        const res = await request(app)
+            .post('/api/auth/register')
+            .send({
+                name: 'Bad Email User',
+                email: 'not-an-email',
+                password: 'Password123'
+            });
+
+        expect(res.status).toBe(400);
+        expect(res.body.error).toMatch(/valid email/i);
+    });
+
+    test('POST /api/auth/login - Rejects missing email or password (400)', async () => {
+        const res = await request(app)
+            .post('/api/auth/login')
+            .send({ email: 'admin@shopeasy.com' });
+
+        expect(res.status).toBe(400);
+    });
+
+    test('POST /api/auth/login - Rejects non-existent email (401)', async () => {
+        const res = await request(app)
+            .post('/api/auth/login')
+            .send({ email: 'nonexistent_user_999@example.com', password: 'Password123' });
+
+        expect(res.status).toBe(401);
+    });
 });

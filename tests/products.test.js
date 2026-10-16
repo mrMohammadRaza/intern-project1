@@ -125,4 +125,76 @@ describe('Products & Categories API Tests', () => {
 
         expect(res.status).toBe(200);
     });
+
+    test('POST /api/products - Rejects invalid category reference (400)', async () => {
+        const res = await request(app)
+            .post('/api/products')
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send({
+                name: 'Bad Category Product',
+                category_id: 999999,
+                price: 10000,
+                stock: 10
+            });
+
+        expect(res.status).toBe(400);
+        expect(res.body.error).toMatch(/category does not exist/i);
+    });
+
+    test('POST /api/products - Rejects negative price or stock (400)', async () => {
+        const res = await request(app)
+            .post('/api/products')
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send({
+                name: 'Negative Price Product',
+                category_id: 1,
+                price: -500,
+                stock: -2
+            });
+
+        expect(res.status).toBe(400);
+    });
+
+    test('POST /api/categories - Admin can create a new category (201)', async () => {
+        const catName = `New Category ${Date.now()}`;
+        const res = await request(app)
+            .post('/api/categories')
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send({ name: catName });
+
+        expect(res.status).toBe(201);
+        expect(res.body.category.name).toBe(catName);
+
+        const newCatId = res.body.category.id;
+
+        // Duplicate rejection test
+        const dupRes = await request(app)
+            .post('/api/categories')
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send({ name: catName });
+        expect(dupRes.status).toBe(409);
+
+        // Update category test
+        const updateRes = await request(app)
+            .put(`/api/categories/${newCatId}`)
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send({ name: `${catName} Updated` });
+        expect(updateRes.status).toBe(200);
+
+        // Delete empty category test
+        const delRes = await request(app)
+            .delete(`/api/categories/${newCatId}`)
+            .set('Authorization', `Bearer ${adminToken}`);
+        expect(delRes.status).toBe(200);
+    });
+
+    test('DELETE /api/categories/:id - Safely rejects deletion if category has products (400)', async () => {
+        // Category 1 (Electronics) has multiple active products
+        const res = await request(app)
+            .delete('/api/categories/1')
+            .set('Authorization', `Bearer ${adminToken}`);
+
+        expect(res.status).toBe(400);
+        expect(res.body.error).toMatch(/assigned to/i);
+    });
 });

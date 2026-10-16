@@ -59,10 +59,17 @@ router.post('/register', async (req, res) => {
         const newUserId = result.lastInsertRowid;
         const user = db.prepare('SELECT id, name, email, role, phone, address, created_at FROM users WHERE id = ?').get(newUserId);
 
+        // Ensure JWT secret is configured
+        const secret = process.env.JWT_SECRET;
+        if (!secret) {
+            console.error('FATAL: JWT_SECRET environment variable is not defined!');
+            return res.status(500).json({ error: 'Server configuration error.' });
+        }
+
         // Sign JWT
         const token = jwt.sign(
             { id: user.id, role: user.role },
-            process.env.JWT_SECRET,
+            secret,
             { expiresIn: process.env.JWT_EXPIRES_IN || '1d' }
         );
 
@@ -101,10 +108,17 @@ router.post('/login', async (req, res) => {
             return res.status(401).json({ error: 'Invalid email or password.' });
         }
 
+        // Ensure JWT secret is configured
+        const secret = process.env.JWT_SECRET;
+        if (!secret) {
+            console.error('FATAL: JWT_SECRET environment variable is not defined!');
+            return res.status(500).json({ error: 'Server configuration error.' });
+        }
+
         // Generate JWT token
         const token = jwt.sign(
             { id: user.id, role: user.role },
-            process.env.JWT_SECRET,
+            secret,
             { expiresIn: process.env.JWT_EXPIRES_IN || '1d' }
         );
 

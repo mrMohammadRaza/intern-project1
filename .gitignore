@@ -1,0 +1,9 @@
+node_modules/
+*.log
+.env
+shopeasy.db
+server/shopeasy.db
+*.sqlite
+*.sqlite3
+.DS_Store
+Thumbs.db

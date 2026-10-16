@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Sign in to your ShopEasy account to view your cart, orders, and manage products.">
+    <title>Login — ShopEasy</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <header class="navbar">
+        <div class="container nav-container">
+            <a href="/index.html" class="brand" aria-label="ShopEasy Home">
+                <span class="logo-icon">🛍️</span>
+                <span>Shop<span class="accent">Easy</span></span>
+            </a>
+            <nav>
+                <ul class="nav-links" id="navbar-links">
+                    <li><a href="/index.html" class="nav-link">Products</a></li>
+                    <li><a href="/register.html" class="btn btn-primary btn-sm">Register</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="auth-wrapper">
+            <div class="auth-card">
+                <div class="auth-header">
+                    <h1>Welcome Back</h1>
+                    <p>Enter your credentials to access your ShopEasy account</p>
+                </div>
+
+                <div id="login-error-alert" style="display:none; background:var(--danger-light); color:var(--danger); padding:0.75rem 1rem; border-radius:var(--radius-md); margin-bottom:1.25rem; font-size:0.9rem; font-weight:600;">
+                </div>
+
+                <div id="login-info-alert" style="display:none; background:var(--primary-light); color:var(--primary); padding:0.75rem 1rem; border-radius:var(--radius-md); margin-bottom:1.25rem; font-size:0.9rem;">
+                </div>
+
+                <form id="login-form">
+                    <div class="form-group">
+                        <label for="login-email" class="form-label">Email Address</label>
+                        <input type="email" id="login-email" class="form-control" placeholder="name@example.com" required autocomplete="email">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="login-password" class="form-label">Password</label>
+                        <input type="password" id="login-password" class="form-control" placeholder="••••••••" required autocomplete="current-password">
+                    </div>
+
+                    <button type="submit" id="login-submit-btn" class="btn btn-primary btn-block btn-lg" style="margin-top:1.5rem;">
+                        Sign In
+                    </button>
+                </form>
+
+                <!-- Demo Credentials Quick Fill -->
+                <div class="demo-account-box">
+                    <strong>⚡ Quick-Fill Demo Credentials:</strong>
+                    <div class="demo-chips">
+                        <button type="button" class="chip-btn" onclick="fillCredentials('customer@shopeasy.com', 'Customer@123')">
+                            👤 Customer (Rahul Sharma)
+                        </button>
+                        <button type="button" class="chip-btn" onclick="fillCredentials('admin@shopeasy.com', 'Admin@123')">
+                            👑 Admin (Admin User)
+                        </button>
+                    </div>
+                </div>
+
+                <div style="text-align:center; margin-top:1.5rem; font-size:0.92rem; color:var(--text-muted);">
+                    Don't have an account? <a href="/register.html" style="font-weight:700;">Create one now</a>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="site-footer">
+        <div class="container footer-content">
+            <div>
+                <strong style="color:#ffffff;">ShopEasy E-Commerce</strong>
+            </div>
+            <div>
+                <p>&copy; 2026 ShopEasy Inc.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script>
+        function fillCredentials(email, password) {
+            document.getElementById('login-email').value = email;
+            document.getElementById('login-password').value = password;
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('session_expired')) {
+                const infoAlert = document.getElementById('login-info-alert');
+                infoAlert.textContent = 'Your session has expired. Please sign in again.';
+                infoAlert.style.display = 'block';
+            }
+
+            const form = document.getElementById('login-form');
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const errBox = document.getElementById('login-error-alert');
+                errBox.style.display = 'none';
+
+                const submitBtn = document.getElementById('login-submit-btn');
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Signing in...';
+
+                const email = document.getElementById('login-email').value.trim();
+                const password = document.getElementById('login-password').value;
+
+                try {
+                    const result = await apiFetch('/auth/login', {
+                        method: 'POST',
+                        body: JSON.stringify({ email, password })
+                    });
+
+                    Auth.setAuth(result.token, result.user);
+                    showToast('Login successful! Welcome back.', 'success');
+
+                    const redirectUrl = params.get('redirect');
+                    setTimeout(() => {
+                        if (redirectUrl) {
+                            window.location.href = redirectUrl;
+                        } else if (result.user.role === 'admin') {
+                            window.location.href = '/admin/dashboard.html';
+                        } else {
+                            window.location.href = '/index.html';
+                        }
+                    }, 500);
+                } catch (err) {
+                    errBox.textContent = err.message || 'Login failed. Please verify your credentials.';
+                    errBox.style.display = 'block';
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Sign In';
+                }
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="ShopEasy Administrator Dashboard - Real-time metrics for products, orders, customers, and sales revenue.">
+    <title>Admin Dashboard — ShopEasy</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <header class="navbar">
+        <div class="container nav-container">
+            <a href="/admin/dashboard.html" class="brand" aria-label="ShopEasy Admin">
+                <span class="logo-icon">👑</span>
+                <span>Shop<span class="accent">Easy</span> <span style="font-size:0.8rem; font-weight:700; color:var(--primary); background:var(--primary-light); padding:0.2rem 0.5rem; border-radius:var(--radius-sm);">ADMIN</span></span>
+            </a>
+            <nav>
+                <ul class="nav-links" id="navbar-links">
+                    <li><a href="/admin/dashboard.html" class="nav-link active">📊 Dashboard</a></li>
+                    <li><a href="/admin/products.html" class="nav-link">📦 Products</a></li>
+                    <li><a href="/admin/orders.html" class="nav-link">🚚 Orders</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container" style="margin-top: 2rem; margin-bottom: 3rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.75rem; flex-wrap:wrap; gap:1rem;">
+            <div>
+                <h1 style="font-size:1.85rem; font-weight:800; color:var(--dark);">Store Overview</h1>
+                <p style="color:var(--text-muted);">Real-time aggregated metrics directly computed from SQLite database queries.</p>
+            </div>
+            <div style="display:flex; gap:0.75rem;">
+                <a href="/admin/products.html" class="btn btn-outline">Manage Catalog</a>
+                <a href="/admin/orders.html" class="btn btn-primary">Manage Orders</a>
+            </div>
+        </div>
+
+        <!-- 5 Stats Cards Grid -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon primary">🛍️</div>
+                <div class="stat-content">
+                    <h3>Active Products</h3>
+                    <div class="stat-value" id="stat-total-products">...</div>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon success">💰</div>
+                <div class="stat-content">
+                    <h3>Net Sales (Excl. Cancelled)</h3>
+                    <div class="stat-value" id="stat-total-sales" style="font-size:1.5rem;">...</div>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon info">🚚</div>
+                <div class="stat-content">
+                    <h3>Total Orders</h3>
+                    <div class="stat-value" id="stat-total-orders">...</div>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon primary">👥</div>
+                <div class="stat-content">
+                    <h3>Registered Customers</h3>
+                    <div class="stat-value" id="stat-total-customers">...</div>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon warning">⚠️</div>
+                <div class="stat-content">
+                    <h3>Low Stock Alert (&lt;5)</h3>
+                    <div class="stat-value" id="stat-low-stock" style="color:var(--warning);">...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Orders Card -->
+        <div class="card" style="background:#fff; border-radius:var(--radius-lg); border:1px solid var(--border-color); padding:1.75rem; box-shadow:var(--shadow-sm);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
+                <h2 style="font-size:1.25rem; font-weight:800; color:var(--dark);">Recent Customer Orders</h2>
+                <a href="/admin/orders.html" style="font-size:0.9rem; font-weight:600;">View All Orders &rarr;</a>
+            </div>
+
+            <div class="table-responsive">
+                <table class="custom-table">
+                    <thead>
+                        <tr>
+                            <th>Order ID</th>
+                            <th>Customer</th>
+                            <th>Date</th>
+                            <th>Total</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recent-orders-tbody">
+                        <tr><td colspan="5" style="text-align:center; padding:2rem;">⏳ Loading recent orders...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <footer class="site-footer">
+        <div class="container footer-content">
+            <div>
+                <strong style="color:#ffffff;">ShopEasy Administration Portal</strong>
+            </div>
+            <div>
+                <p>&copy; 2026 ShopEasy Inc.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/admin.js"></script>
+</body>
+</html>

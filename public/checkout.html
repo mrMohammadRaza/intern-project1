@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Complete your Cash on Delivery order safely on ShopEasy.">
+    <title>Checkout (Cash on Delivery) — ShopEasy</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <header class="navbar">
+        <div class="container nav-container">
+            <a href="/index.html" class="brand" aria-label="ShopEasy Home">
+                <span class="logo-icon">🛍️</span>
+                <span>Shop<span class="accent">Easy</span></span>
+            </a>
+            <nav>
+                <ul class="nav-links" id="navbar-links">
+                    <li><a href="/index.html" class="nav-link">Products</a></li>
+                    <li><a href="/cart.html" class="cart-btn">🛒 Cart</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        <div style="margin: 2rem 0;">
+            <h1 style="font-size:1.8rem; font-weight:800; color:var(--dark); margin-bottom:0.5rem;">
+                Checkout
+            </h1>
+            <p style="color:var(--text-muted); margin-bottom:2rem;">
+                Please provide your delivery information. Payment is collected upon delivery (Cash on Delivery).
+            </p>
+
+            <div class="cart-layout">
+                <!-- Shipping Details Form -->
+                <div class="cart-items-card">
+                    <h2 style="font-size:1.3rem; font-weight:700; margin-bottom:1.5rem; display:flex; align-items:center; gap:0.5rem;">
+                        📍 1. Delivery Address
+                    </h2>
+
+                    <div id="checkout-error" style="display:none; background:var(--danger-light); color:var(--danger); padding:0.75rem 1rem; border-radius:var(--radius-md); margin-bottom:1.25rem; font-size:0.9rem; font-weight:600;">
+                    </div>
+
+                    <form id="checkout-form">
+                        <div class="form-group">
+                            <label for="shipping_name" class="form-label">Full Name *</label>
+                            <input type="text" id="shipping_name" class="form-control" placeholder="Recipient's Name" required minlength="2">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="shipping_phone" class="form-label">10-Digit Mobile Number *</label>
+                            <input type="tel" id="shipping_phone" class="form-control" placeholder="9876543210" required maxlength="10">
+                            <div class="form-help">Delivery driver will call on this number for delivery.</div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="shipping_address" class="form-label">Complete Street Address *</label>
+                            <textarea id="shipping_address" class="form-control" rows="3" placeholder="House / Flat No., Apartment / Building Name, Street / Road, Landmark" required minlength="5"></textarea>
+                        </div>
+
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:1rem;">
+                            <div class="form-group">
+                                <label for="shipping_city" class="form-label">City *</label>
+                                <input type="text" id="shipping_city" class="form-control" placeholder="e.g. Bengaluru" required minlength="2">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="shipping_pincode" class="form-label">PIN Code *</label>
+                                <input type="text" id="shipping_pincode" class="form-control" placeholder="e.g. 560038" required pattern="\d{6}" maxlength="6">
+                            </div>
+                        </div>
+
+                        <!-- Payment Method Selection -->
+                        <div style="margin-top:2rem; padding:1.25rem; border-radius:var(--radius-md); background:#f8fafc; border:1.5px solid var(--border-color);">
+                            <h2 style="font-size:1.15rem; font-weight:700; color:var(--dark); margin-bottom:0.75rem; display:flex; align-items:center; gap:0.5rem;">
+                                💵 2. Payment Method
+                            </h2>
+                            <label style="display:flex; align-items:center; gap:0.75rem; cursor:pointer; font-weight:600; color:var(--dark);">
+                                <input type="radio" name="payment_method" value="COD" checked style="width:18px; height:18px; accent-color:var(--primary);">
+                                <span>Cash on Delivery (COD)</span>
+                            </label>
+                            <p style="font-size:0.85rem; color:var(--text-muted); margin-top:0.4rem; margin-left:1.8rem;">
+                                Pay conveniently with cash or mobile UPI QR when your order arrives at your doorstep.
+                            </p>
+                        </div>
+
+                        <div style="margin-top:2rem;">
+                            <button type="submit" id="place-order-btn" class="btn btn-primary btn-block btn-lg">
+                                Confirm & Place Order (Cash on Delivery)
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Order Summary Sidebar -->
+                <div class="summary-card" style="height: fit-content;">
+                    <h2 style="font-size:1.3rem; font-weight:800; margin-bottom:1.25rem;">Order Items</h2>
+
+                    <div id="checkout-summary-items" style="max-height:300px; overflow-y:auto; border-bottom:1px solid var(--border-color); padding-bottom:1rem; margin-bottom:1rem;">
+                        <!-- Rendered by checkout.js -->
+                    </div>
+
+                    <div class="summary-row">
+                        <span>Delivery Fee</span>
+                        <span style="color:var(--success); font-weight:700;">FREE</span>
+                    </div>
+
+                    <div class="summary-row total">
+                        <span>Payable Amount</span>
+                        <span id="checkout-grand-total" style="color:var(--primary); font-size:1.4rem;">₹0.00</span>
+                    </div>
+
+                    <div style="margin-top:1.5rem; background:#ecfdf5; border:1px solid #a7f3d0; border-radius:var(--radius-md); padding:0.85rem; font-size:0.85rem; color:#065f46;">
+                        🛡️ <strong>Zero Risk:</strong> You only pay when you inspect and receive your package.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="site-footer">
+        <div class="container footer-content">
+            <div>
+                <strong style="color:#ffffff;">ShopEasy E-Commerce</strong>
+            </div>
+            <div>
+                <p>&copy; 2026 ShopEasy Inc.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/checkout.js"></script>
+</body>
+</html>

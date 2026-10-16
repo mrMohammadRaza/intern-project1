@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="View your past orders, delivery tracking, and purchase summaries on ShopEasy.">
+    <title>My Orders — ShopEasy</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <header class="navbar">
+        <div class="container nav-container">
+            <a href="/index.html" class="brand" aria-label="ShopEasy Home">
+                <span class="logo-icon">🛍️</span>
+                <span>Shop<span class="accent">Easy</span></span>
+            </a>
+            <nav>
+                <ul class="nav-links" id="navbar-links">
+                    <li><a href="/index.html" class="nav-link">Products</a></li>
+                    <li><a href="/orders.html" class="nav-link active">My Orders</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        <div style="margin: 2rem 0;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+                <div>
+                    <h1 style="font-size:1.8rem; font-weight:800; color:var(--dark);">My Orders</h1>
+                    <p style="color:var(--text-muted);">Track your shipments and view past order invoices.</p>
+                </div>
+                <a href="/index.html" class="btn btn-outline">&larr; Shop More</a>
+            </div>
+
+            <div id="orders-list-container" style="min-height:400px;">
+                <!-- Rendered by orders.js -->
+            </div>
+        </div>
+    </main>
+
+    <!-- Order Details Modal -->
+    <div class="modal-backdrop" id="order-modal">
+        <div class="modal-card">
+            <button type="button" class="modal-close-btn" onclick="closeOrderModal()">&times;</button>
+            <div id="order-modal-content">
+                <!-- Dynamically populated -->
+            </div>
+        </div>
+    </div>
+
+    <footer class="site-footer">
+        <div class="container footer-content">
+            <div>
+                <strong style="color:#ffffff;">ShopEasy E-Commerce</strong>
+            </div>
+            <div>
+                <p>&copy; 2026 ShopEasy Inc.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/orders.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            initOrdersPage();
+        });
+    </script>
+</body>
+</html>

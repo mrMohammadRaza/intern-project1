@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="ShopEasy - Modern, simplified e-commerce application. Browse premium gadgets, fashion, home essentials, and stationery with Cash on Delivery.">
+    <title>ShopEasy — Simple, Smart Shopping</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <!-- Top Navigation Bar -->
+    <header class="navbar">
+        <div class="container nav-container">
+            <a href="/index.html" class="brand" aria-label="ShopEasy Home">
+                <span class="logo-icon">🛍️</span>
+                <span>Shop<span class="accent">Easy</span></span>
+            </a>
+            <nav>
+                <ul class="nav-links" id="navbar-links">
+                    <!-- Populated dynamically by auth.js -->
+                    <li><a href="/index.html" class="nav-link active">Products</a></li>
+                    <li><a href="/login.html" class="nav-link">Login</a></li>
+                    <li><a href="/register.html" class="btn btn-primary btn-sm">Register</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- Hero Promotion Banner -->
+        <section class="hero-banner">
+            <div class="container">
+                <div class="hero-content">
+                    <span class="hero-tag">✨ Cash on Delivery Available Nationwide</span>
+                    <h1 class="hero-title">Discover Quality Essentials at Honest Prices</h1>
+                    <p class="hero-subtitle">
+                        Shop high-rated electronics, timeless fashion, home comforts, and stationery. Enjoy guaranteed Cash on Delivery and easy ordering.
+                    </p>
+                    <a href="#shop-section" class="btn btn-primary btn-lg" style="background:#ffffff; color:var(--primary); font-weight:700;">
+                        Explore Products &darr;
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        <!-- Shop Controls & Filter Section -->
+        <section id="shop-section">
+            <div class="controls-bar">
+                <div class="search-box">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="product-search" placeholder="Search products by title or keyword..." aria-label="Search products">
+                </div>
+
+                <div class="filter-group">
+                    <select id="category-select" class="select-custom" aria-label="Select Category">
+                        <option value="all">All Categories</option>
+                    </select>
+
+                    <select id="sort-select" class="select-custom" aria-label="Sort products">
+                        <option value="newest">Sort by: Newest</option>
+                        <option value="price_asc">Price: Low to High</option>
+                        <option value="price_desc">Price: High to Low</option>
+                        <option value="name_asc">Name: A to Z</option>
+                        <option value="name_desc">Name: Z to A</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Category Pills -->
+            <div class="category-pills" id="category-pills">
+                <!-- Dynamically populated -->
+            </div>
+
+            <!-- Product Grid -->
+            <div class="products-grid" id="products-grid">
+                <!-- Dynamically populated -->
+            </div>
+
+            <!-- Pagination -->
+            <div class="pagination-wrapper" id="pagination-container">
+                <!-- Dynamically populated -->
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="site-footer">
+        <div class="container footer-content">
+            <div>
+                <strong style="color:#ffffff; font-size:1.1rem;">ShopEasy E-Commerce</strong>
+                <p style="margin-top:0.25rem;">Built with Node.js, Express, SQLite, and Vanilla JS.</p>
+            </div>
+            <div>
+                <p>&copy; 2026 ShopEasy Inc. Cash on Delivery Platform.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/products.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            initCatalogPage();
+        });
+    </script>
+</body>
+</html>

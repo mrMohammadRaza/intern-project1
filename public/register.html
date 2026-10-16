@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Create a new customer account on ShopEasy to start shopping with Cash on Delivery.">
+    <title>Register — ShopEasy</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <header class="navbar">
+        <div class="container nav-container">
+            <a href="/index.html" class="brand" aria-label="ShopEasy Home">
+                <span class="logo-icon">🛍️</span>
+                <span>Shop<span class="accent">Easy</span></span>
+            </a>
+            <nav>
+                <ul class="nav-links" id="navbar-links">
+                    <li><a href="/index.html" class="nav-link">Products</a></li>
+                    <li><a href="/login.html" class="nav-link">Login</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="auth-wrapper">
+            <div class="auth-card">
+                <div class="auth-header">
+                    <h1>Create Account</h1>
+                    <p>Join ShopEasy to enjoy fast shopping and Cash on Delivery</p>
+                </div>
+
+                <div id="register-error-alert" style="display:none; background:var(--danger-light); color:var(--danger); padding:0.75rem 1rem; border-radius:var(--radius-md); margin-bottom:1.25rem; font-size:0.9rem; font-weight:600;">
+                </div>
+
+                <div id="register-success-alert" style="display:none; background:var(--success-light); color:var(--success); padding:0.75rem 1rem; border-radius:var(--radius-md); margin-bottom:1.25rem; font-size:0.9rem; font-weight:600;">
+                </div>
+
+                <form id="register-form">
+                    <div class="form-group">
+                        <label for="reg-name" class="form-label">Full Name *</label>
+                        <input type="text" id="reg-name" class="form-control" placeholder="e.g. Priya Patel" required minlength="2">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="reg-email" class="form-label">Email Address *</label>
+                        <input type="email" id="reg-email" class="form-control" placeholder="priya@example.com" required autocomplete="email">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="reg-password" class="form-label">Password * (minimum 6 characters)</label>
+                        <input type="password" id="reg-password" class="form-control" placeholder="••••••••" required minlength="6" autocomplete="new-password">
+                        <div class="form-help">Must be at least 6 characters long.</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="reg-phone" class="form-label">Mobile Number (Optional)</label>
+                        <input type="tel" id="reg-phone" class="form-control" placeholder="9876543210" maxlength="10">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="reg-address" class="form-label">Default Shipping Address (Optional)</label>
+                        <textarea id="reg-address" class="form-control" rows="2" placeholder="House no, Street, Locality"></textarea>
+                    </div>
+
+                    <button type="submit" id="reg-submit-btn" class="btn btn-primary btn-block btn-lg" style="margin-top:1.5rem;">
+                        Create My Account
+                    </button>
+                </form>
+
+                <div style="text-align:center; margin-top:1.5rem; font-size:0.92rem; color:var(--text-muted);">
+                    Already registered? <a href="/login.html" style="font-weight:700;">Sign in here</a>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="site-footer">
+        <div class="container footer-content">
+            <div>
+                <strong style="color:#ffffff;">ShopEasy E-Commerce</strong>
+            </div>
+            <div>
+                <p>&copy; 2026 ShopEasy Inc.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const form = document.getElementById('register-form');
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const errBox = document.getElementById('register-error-alert');
+                const successBox = document.getElementById('register-success-alert');
+                errBox.style.display = 'none';
+                successBox.style.display = 'none';
+
+                const name = document.getElementById('reg-name').value.trim();
+                const email = document.getElementById('reg-email').value.trim();
+                const password = document.getElementById('reg-password').value;
+                const phone = document.getElementById('reg-phone').value.trim();
+                const address = document.getElementById('reg-address').value.trim();
+
+                if (password.length < 6) {
+                    errBox.textContent = 'Password must be at least 6 characters long.';
+                    errBox.style.display = 'block';
+                    return;
+                }
+
+                const submitBtn = document.getElementById('reg-submit-btn');
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Creating Account...';
+
+                try {
+                    const result = await apiFetch('/auth/register', {
+                        method: 'POST',
+                        body: JSON.stringify({ name, email, password, phone, address })
+                    });
+
+                    successBox.textContent = result.message || 'Registration successful! Logging you in...';
+                    successBox.style.display = 'block';
+
+                    Auth.setAuth(result.token, result.user);
+
+                    setTimeout(() => {
+                        window.location.href = '/index.html';
+                    }, 1000);
+                } catch (err) {
+                    errBox.textContent = err.message || 'Registration failed.';
+                    errBox.style.display = 'block';
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Create My Account';
+                }
+            });
+        });
+    </script>
+</body>
+</html>

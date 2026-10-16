@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Manage and update customer orders and shipment statuses on ShopEasy Admin.">
+    <title>Manage Orders — ShopEasy Admin</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <header class="navbar">
+        <div class="container nav-container">
+            <a href="/admin/dashboard.html" class="brand" aria-label="ShopEasy Admin">
+                <span class="logo-icon">👑</span>
+                <span>Shop<span class="accent">Easy</span> <span style="font-size:0.8rem; font-weight:700; color:var(--primary); background:var(--primary-light); padding:0.2rem 0.5rem; border-radius:var(--radius-sm);">ADMIN</span></span>
+            </a>
+            <nav>
+                <ul class="nav-links" id="navbar-links">
+                    <li><a href="/admin/dashboard.html" class="nav-link">📊 Dashboard</a></li>
+                    <li><a href="/admin/products.html" class="nav-link">📦 Products</a></li>
+                    <li><a href="/admin/orders.html" class="nav-link active">🚚 Orders</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container" style="margin-top: 2rem; margin-bottom: 3rem;">
+        <div style="margin-bottom:1.75rem;">
+            <h1 style="font-size:1.85rem; font-weight:800; color:var(--dark);">Customer Orders</h1>
+            <p style="color:var(--text-muted);">Track customer purchases and advance order statuses through the fulfilment lifecycle: Placed &rarr; Shipped &rarr; Delivered.</p>
+        </div>
+
+        <!-- Filter Controls -->
+        <div class="controls-bar">
+            <div class="search-box">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="admin-order-search" placeholder="Search by customer name, email, or order ID..." aria-label="Search orders">
+            </div>
+
+            <div class="filter-group">
+                <select id="admin-order-status-filter" class="select-custom" aria-label="Filter by order status">
+                    <option value="">All Statuses</option>
+                    <option value="Placed">Placed</option>
+                    <option value="Shipped">Shipped</option>
+                    <option value="Delivered">Delivered</option>
+                    <option value="Cancelled">Cancelled</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Orders Table Card -->
+        <div class="card" style="background:#fff; border-radius:var(--radius-lg); border:1px solid var(--border-color); padding:1.5rem; box-shadow:var(--shadow-sm);">
+            <div class="table-responsive">
+                <table class="custom-table">
+                    <thead>
+                        <tr>
+                            <th>Order ID</th>
+                            <th>Customer & Contact</th>
+                            <th>Order Date</th>
+                            <th>Shipping Address</th>
+                            <th>Total Amount</th>
+                            <th>Update Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-orders-tbody">
+                        <tr><td colspan="7" style="text-align:center; padding:2rem;">⏳ Loading orders...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Order Details Modal -->
+    <div class="modal-backdrop" id="order-modal">
+        <div class="modal-card">
+            <button type="button" class="modal-close-btn" onclick="closeOrderModal()">&times;</button>
+            <div id="order-modal-content">
+                <!-- Dynamically populated -->
+            </div>
+        </div>
+    </div>
+
+    <footer class="site-footer">
+        <div class="container footer-content">
+            <div>
+                <strong style="color:#ffffff;">ShopEasy Administration Portal</strong>
+            </div>
+            <div>
+                <p>&copy; 2026 ShopEasy Inc.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/orders.js"></script>
+    <script src="/js/admin.js"></script>
+</body>
+</html>

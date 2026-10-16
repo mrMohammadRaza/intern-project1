@@ -5,5 +5,7 @@ shopeasy.db
 server/shopeasy.db
 *.sqlite
 *.sqlite3
+*.db-wal
+*.db-shm
 .DS_Store
 Thumbs.db

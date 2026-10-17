@@ -11,6 +11,7 @@ let currentFilters = {
 };
 
 let searchDebounceTimeout = null;
+let currentFetchSequence = 0;
 
 /**
  * Initialize Catalog Page
@@ -171,11 +172,19 @@ async function fetchProducts() {
     const paginationContainer = document.getElementById('pagination-container');
     if (!grid) return;
 
+    const fetchSeq = ++currentFetchSequence;
+
+    // Loading State
     grid.innerHTML = `
-        <div style="grid-column: 1 / -1; text-align: center; padding: 3rem;">
-            <p>⏳ Loading products...</p>
+        <div class="empty-state" style="grid-column: 1 / -1;" id="products-loading">
+            <div class="empty-icon" style="display: inline-block;">⏳</div>
+            <h3>Loading products...</h3>
+            <p>Please wait while we fetch the latest items for you.</p>
         </div>
     `;
+    if (paginationContainer) {
+        paginationContainer.innerHTML = '';
+    }
 
     try {
         const queryParams = new URLSearchParams({
@@ -187,31 +196,48 @@ async function fetchProducts() {
         });
 
         const data = await apiFetch(`/products?${queryParams.toString()}`);
+
+        // Discard stale responses from older requests (prevents race condition overwrites)
+        if (fetchSeq !== currentFetchSequence) {
+            return;
+        }
+
         const products = data.products || [];
-        const pagination = data.pagination || { page: 1, totalPages: 1 };        if (products.length === 0) {
+        const pagination = data.pagination || { page: 1, totalPages: 1 };
+
+        // Empty State
+        if (products.length === 0) {
+            const isFiltered = Boolean(
+                (currentFilters.search && currentFilters.search.trim() !== '') ||
+                (currentFilters.category && currentFilters.category !== 'all')
+            );
+
             grid.innerHTML = `
-                <div class="empty-state" style="grid-column: 1 / -1;">
-                    <div class="empty-icon">🔍</div>
-                    <h3>No products found</h3>
-                    <p>We couldn't find any products matching your search criteria. Try adjusting your filters.</p>
-                    <button type="button" class="btn btn-outline action-reset-filters">Reset All Filters</button>
+                <div class="empty-state" style="grid-column: 1 / -1;" id="products-empty-state">
+                    <div class="empty-icon">${isFiltered ? '🔍' : '📦'}</div>
+                    <h3>${isFiltered ? 'No products found' : 'No products available'}</h3>
+                    <p>${isFiltered ? "We couldn't find any products matching your search criteria. Try adjusting your filters." : "Our store catalog is currently empty. Please check back soon!"}</p>
+                    ${isFiltered 
+                        ? '<button type="button" class="btn btn-outline action-reset-filters">Reset All Filters</button>' 
+                        : '<button type="button" class="btn btn-primary action-retry-products">Refresh</button>'}
                 </div>
             `;
             if (paginationContainer) paginationContainer.innerHTML = '';
             return;
         }
 
+        const fallbackImg = '/images/placeholder.svg';
         let html = '';
+
         products.forEach(p => {
-            const fallbackImg = "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600";
-            const imageUrl = p.image_url || fallbackImg;
+            const imageUrl = (p.image_url && p.image_url.trim()) ? p.image_url.trim() : fallbackImg;
             const isOutOfStock = p.stock <= 0;
             const isLowStock = p.stock > 0 && p.stock < 5;
 
             html += `
                 <div class="product-card" id="product-${p.id}">
                     <div class="card-image-wrap">
-                        <span class="card-badge badge-cat">${escapeHtml(p.category_name)}</span>
+                        <span class="card-badge badge-cat">${escapeHtml(p.category_name || 'General')}</span>
                         ${isOutOfStock ? '<span class="card-badge badge-out-of-stock">Out of Stock</span>' : ''}
                         ${isLowStock ? `<span class="card-badge badge-stock-low">Only ${p.stock} Left!</span>` : ''}
                         <a href="/product.html?id=${p.id}">
@@ -240,12 +266,18 @@ async function fetchProducts() {
         grid.innerHTML = html;
         renderPagination(pagination);
     } catch (err) {
+        // Discard stale error responses
+        if (fetchSeq !== currentFetchSequence) {
+            return;
+        }
+
         console.error('Error fetching products:', err);
+        if (paginationContainer) paginationContainer.innerHTML = '';
         grid.innerHTML = `
-            <div class="empty-state" style="grid-column: 1 / -1;">
+            <div class="empty-state" style="grid-column: 1 / -1;" id="products-error-state">
                 <div class="empty-icon">⚠️</div>
                 <h3>Failed to load products</h3>
-                <p>${escapeHtml(err.message)}</p>
+                <p>${escapeHtml(err.message || 'Unable to connect to the catalog service.')}</p>
                 <button type="button" class="btn btn-primary action-retry-products">Retry</button>
             </div>
         `;
@@ -307,7 +339,6 @@ function renderPagination(pagination) {
     `;
 
     container.innerHTML = html;
-}= html;
 }
 
 function goToPage(page) {
@@ -383,8 +414,8 @@ async function initProductDetailsPage() {
         const data = await apiFetch(`/products/${productId}`);
         const p = data.product;
 
-        const fallbackImg = "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600";
-        const imageUrl = p.image_url || fallbackImg;
+        const fallbackImg = '/images/placeholder.svg';
+        const imageUrl = (p.image_url && p.image_url.trim()) ? p.image_url.trim() : fallbackImg;
         const isOutOfStock = p.stock <= 0;
         const isLowStock = p.stock > 0 && p.stock < 5;
 

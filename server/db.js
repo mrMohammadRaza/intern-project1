@@ -55,6 +55,16 @@ if (!tableCheck) {
     if (process.env.NODE_ENV !== 'production') {
         seedData();
     }
+} else if (process.env.NODE_ENV !== 'production') {
+    // If development database exists but has no products, safely populate demo data without duplicating
+    try {
+        const prodCount = db.prepare("SELECT COUNT(*) as count FROM products").get();
+        if (prodCount && prodCount.count === 0) {
+            seedData();
+        }
+    } catch {
+        // Ignore if products table doesn't exist yet
+    }
 }
 
 module.exports = {

@@ -113,7 +113,7 @@ router.get('/', (req, res) => {
             SELECT 
                 p.id, 
                 p.category_id, 
-                c.name as category_name, 
+                COALESCE(c.name, 'General') as category_name, 
                 p.name, 
                 p.description, 
                 p.price, 
@@ -122,7 +122,7 @@ router.get('/', (req, res) => {
                 p.is_active, 
                 p.created_at
             FROM products p
-            JOIN categories c ON p.category_id = c.id
+            LEFT JOIN categories c ON p.category_id = c.id
             ${whereClause}
             ${orderBy}
             LIMIT ? OFFSET ?
@@ -181,7 +181,7 @@ router.get('/:id', (req, res) => {
             SELECT 
                 p.id, 
                 p.category_id, 
-                c.name as category_name, 
+                COALESCE(c.name, 'General') as category_name, 
                 p.name, 
                 p.description, 
                 p.price, 
@@ -190,7 +190,7 @@ router.get('/:id', (req, res) => {
                 p.is_active, 
                 p.created_at
             FROM products p
-            JOIN categories c ON p.category_id = c.id
+            LEFT JOIN categories c ON p.category_id = c.id
             WHERE p.id = ? ${activeCondition}
         `;
         const product = db.prepare(query).get(productId);

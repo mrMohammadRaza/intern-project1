@@ -3,6 +3,7 @@ const router = express.Router();
 const { db } = require('../db');
 const authenticateToken = require('../middleware/auth');
 const adminOnly = require('../middleware/adminOnly');
+const { isStrictPositiveInteger, parseStrictInteger } = require('../middleware/validate');
 
 /**
  * GET /api/categories
@@ -62,10 +63,10 @@ router.post('/', authenticateToken, adminOnly, (req, res) => {
  */
 router.put('/:id', authenticateToken, adminOnly, (req, res) => {
     try {
-        const categoryId = parseInt(req.params.id, 10);
-        if (isNaN(categoryId)) {
+        if (!isStrictPositiveInteger(req.params.id)) {
             return res.status(400).json({ error: 'Invalid category ID.' });
         }
+        const categoryId = parseStrictInteger(req.params.id);
 
         const { name } = req.body;
         if (!name || typeof name !== 'string' || name.trim().length === 0) {
@@ -102,10 +103,10 @@ router.put('/:id', authenticateToken, adminOnly, (req, res) => {
  */
 router.delete('/:id', authenticateToken, adminOnly, (req, res) => {
     try {
-        const categoryId = parseInt(req.params.id, 10);
-        if (isNaN(categoryId)) {
+        if (!isStrictPositiveInteger(req.params.id)) {
             return res.status(400).json({ error: 'Invalid category ID.' });
         }
+        const categoryId = parseStrictInteger(req.params.id);
 
         const category = db.prepare('SELECT * FROM categories WHERE id = ?').get(categoryId);
         if (!category) {

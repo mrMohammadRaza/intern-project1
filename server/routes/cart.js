@@ -2,13 +2,14 @@ const express = require('express');
 const router = express.Router();
 const { db } = require('../db');
 const authenticateToken = require('../middleware/auth');
-const { isPositiveInteger } = require('../middleware/validate');
+const customerOnly = require('../middleware/customerOnly');
+const { isStrictPositiveInteger, parseStrictInteger } = require('../middleware/validate');
 
 /**
  * GET /api/cart
  * Customer: Retrieve current user's shopping cart with recalculated totals
  */
-router.get('/', authenticateToken, (req, res) => {
+router.get('/', authenticateToken, customerOnly, (req, res) => {
     try {
         const userId = req.user.id;
 
@@ -72,20 +73,20 @@ router.get('/', authenticateToken, (req, res) => {
  * POST /api/cart
  * Customer: Add product to cart or increment quantity if already present
  */
-router.post('/', authenticateToken, (req, res) => {
+router.post('/', authenticateToken, customerOnly, (req, res) => {
     try {
         const userId = req.user.id;
         const { product_id, quantity = 1 } = req.body;
 
-        const productId = parseInt(product_id, 10);
-        if (isNaN(productId)) {
+        if (!isStrictPositiveInteger(product_id)) {
             return res.status(400).json({ error: 'Valid product ID is required.' });
         }
+        const productId = parseStrictInteger(product_id);
 
-        const qtyToAdd = parseInt(quantity, 10);
-        if (isNaN(qtyToAdd) || qtyToAdd <= 0) {
+        if (!isStrictPositiveInteger(quantity)) {
             return res.status(400).json({ error: 'Quantity must be a positive integer.' });
         }
+        const qtyToAdd = parseStrictInteger(quantity);
 
         // Fetch product and check active state & stock
         const product = db.prepare('SELECT id, name, price, stock, is_active FROM products WHERE id = ?').get(productId);
@@ -138,19 +139,19 @@ router.post('/', authenticateToken, (req, res) => {
  * PUT /api/cart/:itemId
  * Customer: Update quantity of a specific cart item
  */
-router.put('/:itemId', authenticateToken, (req, res) => {
+router.put('/:itemId', authenticateToken, customerOnly, (req, res) => {
     try {
         const userId = req.user.id;
-        const itemId = parseInt(req.params.itemId, 10);
-        if (isNaN(itemId)) {
+        if (!isStrictPositiveInteger(req.params.itemId)) {
             return res.status(400).json({ error: 'Invalid cart item ID.' });
         }
+        const itemId = parseStrictInteger(req.params.itemId);
 
         const { quantity } = req.body;
-        const newQty = parseInt(quantity, 10);
-        if (isNaN(newQty) || newQty <= 0) {
-            return res.status(400).json({ error: 'Quantity must be at least 1. To remove, please use delete.' });
+        if (!isStrictPositiveInteger(quantity)) {
+            return res.status(400).json({ error: 'Quantity must be a positive integer. To remove, please use delete.' });
         }
+        const newQty = parseStrictInteger(quantity);
 
         // Check ownership of cart item
         const cartItem = db.prepare(`
@@ -194,13 +195,13 @@ router.put('/:itemId', authenticateToken, (req, res) => {
  * DELETE /api/cart/:itemId
  * Customer: Remove an item from cart
  */
-router.delete('/:itemId', authenticateToken, (req, res) => {
+router.delete('/:itemId', authenticateToken, customerOnly, (req, res) => {
     try {
         const userId = req.user.id;
-        const itemId = parseInt(req.params.itemId, 10);
-        if (isNaN(itemId)) {
+        if (!isStrictPositiveInteger(req.params.itemId)) {
             return res.status(400).json({ error: 'Invalid cart item ID.' });
         }
+        const itemId = parseStrictInteger(req.params.itemId);
 
         // Verify ownership
         const item = db.prepare('SELECT id FROM cart_items WHERE id = ? AND user_id = ?').get(itemId, userId);

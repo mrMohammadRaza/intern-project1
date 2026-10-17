@@ -40,6 +40,26 @@
             </div>
         </div>
 
+        <!-- Catalog Filter Controls Bar -->
+        <div class="controls-bar">
+            <div class="search-box">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="admin-product-search" placeholder="Search products by title or description..." aria-label="Search catalog">
+            </div>
+
+            <div class="filter-group">
+                <select id="admin-product-category-filter" class="select-custom" aria-label="Filter by category">
+                    <option value="">All Categories</option>
+                </select>
+
+                <select id="admin-product-status-filter" class="select-custom" aria-label="Filter by visibility">
+                    <option value="all">All Products (Active & Inactive)</option>
+                    <option value="active">Active Only</option>
+                    <option value="inactive">Inactive Only</option>
+                </select>
+            </div>
+        </div>
+
         <!-- Products Table Card -->
         <div class="card" style="background:#fff; border-radius:var(--radius-lg); border:1px solid var(--border-color); padding:1.5rem; box-shadow:var(--shadow-sm);">
             <div class="table-responsive">

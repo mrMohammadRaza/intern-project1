@@ -3,7 +3,7 @@ const router = express.Router();
 const { db } = require('../db');
 const authenticateToken = require('../middleware/auth');
 const adminOnly = require('../middleware/adminOnly');
-const { isNonNegativeInteger } = require('../middleware/validate');
+const { isStrictPositiveInteger, isStrictNonNegativeInteger, parseStrictInteger, isValidImageUrl } = require('../middleware/validate');
 
 /**
  * GET /api/products
@@ -20,8 +20,16 @@ router.get('/', (req, res) => {
             status // 'all', 'active', 'inactive' - only allowed for admins
         } = req.query;
 
-        const pageNum = Math.max(1, parseInt(page, 10) || 1);
-        const limitNum = Math.max(1, Math.min(100, parseInt(limit, 10) || 8));
+        // Strict numeric validation for page and limit
+        if (page !== undefined && !isStrictPositiveInteger(page)) {
+            return res.status(400).json({ error: 'Query parameter "page" must be a positive integer.' });
+        }
+        if (limit !== undefined && !isStrictPositiveInteger(limit)) {
+            return res.status(400).json({ error: 'Query parameter "limit" must be a positive integer.' });
+        }
+
+        const pageNum = page !== undefined ? parseStrictInteger(page) : 1;
+        const limitNum = limit !== undefined ? Math.min(100, Math.max(1, parseStrictInteger(limit))) : 8;
         const offset = (pageNum - 1) * limitNum;
 
         const conditions = [];
@@ -30,14 +38,15 @@ router.get('/', (req, res) => {
         // Check if admin is requesting inactive products
         let includeInactive = false;
         if (status === 'all' || status === 'inactive') {
-            // Check auth header if provided
             const authHeader = req.headers['authorization'];
-            if (authHeader) {
+            if (authHeader && authHeader.startsWith('Bearer ')) {
                 try {
                     const token = authHeader.split(' ')[1];
-                    const decoded = require('jsonwebtoken').verify(token, process.env.JWT_SECRET);
-                    if (decoded && decoded.role === 'admin') {
-                        includeInactive = true;
+                    if (process.env.JWT_SECRET) {
+                        const decoded = require('jsonwebtoken').verify(token, process.env.JWT_SECRET);
+                        if (decoded && decoded.role === 'admin') {
+                            includeInactive = true;
+                        }
                     }
                 } catch {
                     // Not valid admin token, default to active only
@@ -58,11 +67,11 @@ router.get('/', (req, res) => {
         }
 
         if (category && category !== 'all') {
-            const catId = parseInt(category, 10);
-            if (!isNaN(catId)) {
-                conditions.push('p.category_id = ?');
-                params.push(catId);
+            if (!isStrictPositiveInteger(category)) {
+                return res.status(400).json({ error: 'Query parameter "category" must be a valid integer ID.' });
             }
+            conditions.push('p.category_id = ?');
+            params.push(Number(category));
         }
 
         const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -141,13 +150,32 @@ router.get('/', (req, res) => {
 /**
  * GET /api/products/:id
  * Public: Get single product details
+ * Rejects malformed IDs and prevents public access to inactive products
  */
 router.get('/:id', (req, res) => {
     try {
-        const productId = parseInt(req.params.id, 10);
-        if (isNaN(productId)) {
-            return res.status(400).json({ error: 'Invalid product ID.' });
+        if (!isStrictPositiveInteger(req.params.id)) {
+            return res.status(400).json({ error: 'Invalid product ID. Must be a positive integer.' });
         }
+        const productId = Number(req.params.id);
+
+        // Check if admin is requesting to view
+        let isAdmin = false;
+        const authHeader = req.headers['authorization'];
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+            try {
+                const token = authHeader.split(' ')[1];
+                if (process.env.JWT_SECRET) {
+                    const decoded = require('jsonwebtoken').verify(token, process.env.JWT_SECRET);
+                    if (decoded && decoded.role === 'admin') {
+                        isAdmin = true;
+                    }
+                }
+            } catch {}
+        }
+
+        // Public users cannot retrieve inactive products
+        const activeCondition = isAdmin ? '' : 'AND p.is_active = 1';
 
         const query = `
             SELECT 
@@ -163,7 +191,7 @@ router.get('/:id', (req, res) => {
                 p.created_at
             FROM products p
             JOIN categories c ON p.category_id = c.id
-            WHERE p.id = ?
+            WHERE p.id = ? ${activeCondition}
         `;
         const product = db.prepare(query).get(productId);
 
@@ -186,34 +214,42 @@ router.post('/', authenticateToken, adminOnly, (req, res) => {
     try {
         const { name, description, price, stock, category_id, image_url, is_active = 1 } = req.body;
 
-        if (!name || typeof name !== 'string' || name.trim().length === 0) {
-            return res.status(400).json({ error: 'Product name is required.' });
+        if (!name || typeof name !== 'string' || name.trim().length === 0 || name.trim().length > 255) {
+            return res.status(400).json({ error: 'Product name is required (maximum 255 characters).' });
         }
 
-        const categoryId = parseInt(category_id, 10);
-        if (isNaN(categoryId)) {
-            return res.status(400).json({ error: 'Valid category ID is required.' });
+        if (description && (typeof description !== 'string' || description.trim().length > 5000)) {
+            return res.status(400).json({ error: 'Product description must be text up to 5000 characters.' });
         }
+
+        if (!isStrictPositiveInteger(category_id)) {
+            return res.status(400).json({ error: 'Valid category ID is required (must be a positive integer).' });
+        }
+        const categoryId = parseStrictInteger(category_id);
 
         const category = db.prepare('SELECT id FROM categories WHERE id = ?').get(categoryId);
         if (!category) {
             return res.status(400).json({ error: 'Selected category does not exist.' });
         }
 
-        // Validate price in paise (positive or zero integer)
-        const pricePaise = parseInt(price, 10);
-        if (isNaN(pricePaise) || pricePaise < 0) {
+        // Validate price in paise strictly (rejecting malformed strings like "100abc")
+        if (!isStrictNonNegativeInteger(price)) {
             return res.status(400).json({ error: 'Price must be a valid non-negative integer (in paise).' });
         }
+        const pricePaise = parseStrictInteger(price);
 
-        // Validate stock
-        const stockQty = parseInt(stock, 10);
-        if (isNaN(stockQty) || stockQty < 0) {
+        // Validate stock strictly
+        if (!isStrictNonNegativeInteger(stock)) {
             return res.status(400).json({ error: 'Stock must be a valid non-negative integer.' });
+        }
+        const stockQty = parseStrictInteger(stock);
+
+        const cleanImageUrl = image_url && typeof image_url === 'string' ? image_url.trim() : null;
+        if (cleanImageUrl && !isValidImageUrl(cleanImageUrl)) {
+            return res.status(400).json({ error: 'Image URL must be a valid HTTP or HTTPS URL.' });
         }
 
         const activeStatus = is_active === 0 || is_active === '0' || is_active === false ? 0 : 1;
-        const cleanImageUrl = image_url && typeof image_url === 'string' ? image_url.trim() : null;
 
         const stmt = db.prepare(`
             INSERT INTO products (category_id, name, description, price, stock, image_url, is_active)
@@ -253,10 +289,10 @@ router.post('/', authenticateToken, adminOnly, (req, res) => {
  */
 router.put('/:id', authenticateToken, adminOnly, (req, res) => {
     try {
-        const productId = parseInt(req.params.id, 10);
-        if (isNaN(productId)) {
+        if (!isStrictPositiveInteger(req.params.id)) {
             return res.status(400).json({ error: 'Invalid product ID.' });
         }
+        const productId = parseStrictInteger(req.params.id);
 
         const existing = db.prepare('SELECT id FROM products WHERE id = ?').get(productId);
         if (!existing) {
@@ -265,32 +301,40 @@ router.put('/:id', authenticateToken, adminOnly, (req, res) => {
 
         const { name, description, price, stock, category_id, image_url, is_active } = req.body;
 
-        if (!name || typeof name !== 'string' || name.trim().length === 0) {
-            return res.status(400).json({ error: 'Product name is required.' });
+        if (!name || typeof name !== 'string' || name.trim().length === 0 || name.trim().length > 255) {
+            return res.status(400).json({ error: 'Product name is required (maximum 255 characters).' });
         }
 
-        const categoryId = parseInt(category_id, 10);
-        if (isNaN(categoryId)) {
-            return res.status(400).json({ error: 'Valid category ID is required.' });
+        if (description && (typeof description !== 'string' || description.trim().length > 5000)) {
+            return res.status(400).json({ error: 'Product description must be text up to 5000 characters.' });
         }
+
+        if (!isStrictPositiveInteger(category_id)) {
+            return res.status(400).json({ error: 'Valid category ID is required (must be a positive integer).' });
+        }
+        const categoryId = parseStrictInteger(category_id);
 
         const category = db.prepare('SELECT id FROM categories WHERE id = ?').get(categoryId);
         if (!category) {
             return res.status(400).json({ error: 'Selected category does not exist.' });
         }
 
-        const pricePaise = parseInt(price, 10);
-        if (isNaN(pricePaise) || pricePaise < 0) {
+        if (!isStrictNonNegativeInteger(price)) {
             return res.status(400).json({ error: 'Price must be a valid non-negative integer (in paise).' });
         }
+        const pricePaise = parseStrictInteger(price);
 
-        const stockQty = parseInt(stock, 10);
-        if (isNaN(stockQty) || stockQty < 0) {
+        if (!isStrictNonNegativeInteger(stock)) {
             return res.status(400).json({ error: 'Stock must be a valid non-negative integer.' });
+        }
+        const stockQty = parseStrictInteger(stock);
+
+        const cleanImageUrl = image_url && typeof image_url === 'string' ? image_url.trim() : null;
+        if (cleanImageUrl && !isValidImageUrl(cleanImageUrl)) {
+            return res.status(400).json({ error: 'Image URL must be a valid HTTP or HTTPS URL.' });
         }
 
         const activeStatus = is_active === 0 || is_active === '0' || is_active === false ? 0 : 1;
-        const cleanImageUrl = image_url && typeof image_url === 'string' ? image_url.trim() : null;
 
         const stmt = db.prepare(`
             UPDATE products 
@@ -332,10 +376,10 @@ router.put('/:id', authenticateToken, adminOnly, (req, res) => {
  */
 router.delete('/:id', authenticateToken, adminOnly, (req, res) => {
     try {
-        const productId = parseInt(req.params.id, 10);
-        if (isNaN(productId)) {
+        if (!isStrictPositiveInteger(req.params.id)) {
             return res.status(400).json({ error: 'Invalid product ID.' });
         }
+        const productId = parseStrictInteger(req.params.id);
 
         const product = db.prepare('SELECT id, name FROM products WHERE id = ?').get(productId);
         if (!product) {

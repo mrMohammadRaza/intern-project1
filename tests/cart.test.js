@@ -4,6 +4,7 @@ const app = require('../server/app');
 describe('Shopping Cart API Tests', () => {
     let customerToken;
     let otherCustomerToken;
+    let adminToken;
     let cartItemId;
 
     beforeAll(async () => {
@@ -24,6 +25,12 @@ describe('Shopping Cart API Tests', () => {
                 phone: '9822334455'
             });
         otherCustomerToken = regRes.body.token;
+
+        // Admin (to verify customerOnly restriction)
+        const adminRes = await request(app)
+            .post('/api/auth/login')
+            .send({ email: 'admin@shopeasy.com', password: 'Admin@123' });
+        adminToken = adminRes.body.token;
     });
 
     test('GET /api/cart - Unauthenticated request is rejected (401)', async () => {
@@ -117,5 +124,47 @@ describe('Shopping Cart API Tests', () => {
             .send({ product_id: 1, quantity: 0 });
 
         expect(res.status).toBe(400);
+    });
+
+    test('Regression: Malformed numeric values are strictly rejected in cart operations (400)', async () => {
+        // 1. Malformed product ID (e.g. "12abc")
+        const badProdRes = await request(app)
+            .post('/api/cart')
+            .set('Authorization', `Bearer ${customerToken}`)
+            .send({ product_id: '12abc', quantity: 1 });
+        expect(badProdRes.status).toBe(400);
+
+        // 2. Malformed quantity (e.g. "2xyz")
+        const badQtyRes = await request(app)
+            .post('/api/cart')
+            .set('Authorization', `Bearer ${customerToken}`)
+            .send({ product_id: 1, quantity: '2xyz' });
+        expect(badQtyRes.status).toBe(400);
+
+        // 3. Malformed itemId parameter in PUT
+        const badPutRes = await request(app)
+            .put('/api/cart/12abc')
+            .set('Authorization', `Bearer ${customerToken}`)
+            .send({ quantity: 2 });
+        expect(badPutRes.status).toBe(400);
+
+        // 4. Malformed itemId parameter in DELETE
+        const badDelRes = await request(app)
+            .delete('/api/cart/12abc')
+            .set('Authorization', `Bearer ${customerToken}`);
+        expect(badDelRes.status).toBe(400);
+    });
+
+    test('Regression: Admin cannot perform customer-only cart operations (403)', async () => {
+        const getRes = await request(app)
+            .get('/api/cart')
+            .set('Authorization', `Bearer ${adminToken}`);
+        expect(getRes.status).toBe(403);
+
+        const postRes = await request(app)
+            .post('/api/cart')
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send({ product_id: 1, quantity: 1 });
+        expect(postRes.status).toBe(403);
     });
 });

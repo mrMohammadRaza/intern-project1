@@ -59,7 +59,9 @@ async function initOrdersPage() {
                         </div>
                     </div>
 
-                    <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:1rem;">
+                    ${renderOrderTimeline(order.status)}
+
+                    <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:1rem; margin-top:1rem;">
                         <div>
                             <div style="font-size:0.9rem; color:var(--text-muted);">
                                 Delivery to: <strong>${escapeHtml(order.shipping_name)}</strong>, ${escapeHtml(order.shipping_city)}
@@ -103,6 +105,57 @@ async function initOrdersPage() {
 }
 
 /**
+ * Render visual order status timeline
+ */
+function renderOrderTimeline(status) {
+    if (status === 'Cancelled') {
+        return `
+            <div class="order-timeline-wrapper">
+                <div class="order-timeline">
+                    <div class="timeline-step completed">
+                        <div class="timeline-circle">✓</div>
+                        <div class="timeline-label">Placed</div>
+                    </div>
+                    <div class="timeline-step cancelled">
+                        <div class="timeline-circle">✕</div>
+                        <div class="timeline-label">Cancelled</div>
+                    </div>
+                </div>
+                <p style="text-align:center; font-size:0.8rem; color:var(--danger); margin-top:0.5rem; font-weight:600;">
+                    Order cancelled • Product stock restored to inventory
+                </p>
+            </div>
+        `;
+    }
+
+    const isShipped = status === 'Shipped';
+    const isDelivered = status === 'Delivered';
+    const progressWidth = isDelivered ? '100%' : (isShipped ? '50%' : '0%');
+
+    return `
+        <div class="order-timeline-wrapper">
+            <div class="order-timeline">
+                <div class="timeline-connector">
+                    <div class="timeline-connector-progress" style="width: ${progressWidth};"></div>
+                </div>
+                <div class="timeline-step ${isDelivered || isShipped ? 'completed' : 'active'}">
+                    <div class="timeline-circle">${isDelivered || isShipped ? '✓' : '1'}</div>
+                    <div class="timeline-label">Placed</div>
+                </div>
+                <div class="timeline-step ${isDelivered ? 'completed' : (isShipped ? 'active' : '')}">
+                    <div class="timeline-circle">${isDelivered ? '✓' : '2'}</div>
+                    <div class="timeline-label">Shipped</div>
+                </div>
+                <div class="timeline-step ${isDelivered ? 'completed active' : ''}">
+                    <div class="timeline-circle">${isDelivered ? '✓' : '3'}</div>
+                    <div class="timeline-label">Delivered</div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+/**
  * View Detailed Modal for an Order
  */
 async function viewOrderDetails(orderId) {
@@ -138,17 +191,19 @@ async function viewOrderDetails(orderId) {
             <h2 style="font-size:1.4rem; font-weight:800; color:var(--dark); margin-bottom:0.5rem;">
                 Order Details #${order.id}
             </h2>
-            <div style="display:flex; gap:0.5rem; align-items:center; margin-bottom:1.5rem;">
+            <div style="display:flex; gap:0.5rem; align-items:center; margin-bottom:1rem;">
                 <span class="status-badge status-${order.status.toLowerCase()}">● ${escapeHtml(order.status)}</span>
                 <span style="font-size:0.85rem; color:var(--text-muted);">Placed on ${dateStr}</span>
             </div>
+
+            ${renderOrderTimeline(order.status)}
 
             <div style="background:#f8fafc; border-radius:var(--radius-md); padding:1rem; margin-bottom:1.5rem; border:1px solid var(--border-color); font-size:0.9rem;">
                 <h4 style="font-weight:700; color:var(--dark); margin-bottom:0.4rem;">Delivery Address</h4>
                 <p><strong>Recipient:</strong> ${escapeHtml(order.shipping_name)}</p>
                 <p><strong>Phone:</strong> ${escapeHtml(order.shipping_phone)}</p>
                 <p><strong>Address:</strong> ${escapeHtml(order.shipping_address)}, ${escapeHtml(order.shipping_city)} - ${escapeHtml(order.shipping_pincode)}</p>
-                <p><strong>Payment:</strong> ${escapeHtml(order.payment_method)}</p>
+                <p><strong>Payment Method:</strong> ${escapeHtml(order.payment_method)}</p>
             </div>
 
             <h4 style="font-weight:700; color:var(--dark); margin-bottom:0.75rem;">Items Purchased</h4>
@@ -160,6 +215,14 @@ async function viewOrderDetails(orderId) {
                 <span>Total Amount:</span>
                 <span style="color:var(--primary); font-size:1.4rem;">${formatRupees(order.total_amount)}</span>
             </div>
+
+            ${order.status === 'Placed' ? `
+                <div style="margin-top:1.5rem; text-align:right;">
+                    <button class="btn btn-danger btn-sm" onclick="cancelOrder(${order.id})">
+                        ✕ Cancel This Order
+                    </button>
+                </div>
+            ` : ''}
         `;
 
         modal.classList.add('open');
@@ -174,19 +237,26 @@ function closeOrderModal() {
 }
 
 /**
- * Cancel Placed Order with confirmation
+ * Cancel Placed Order with accessible confirmation dialog
  */
 async function cancelOrder(orderId) {
-    if (!confirm(`Are you sure you want to cancel Order #${orderId}? Product stock will be returned to store inventory.`)) {
-        return;
-    }
+    const confirmed = await showConfirmDialog({
+        title: `Cancel Order #${orderId}?`,
+        message: 'Are you sure you want to cancel this order? Stock will be immediately restored to the store catalog.',
+        confirmText: 'Yes, Cancel Order',
+        cancelText: 'Keep Order',
+        type: 'danger'
+    });
+
+    if (!confirmed) return;
 
     try {
         const res = await apiFetch(`/orders/${orderId}/cancel`, {
             method: 'PATCH'
         });
-        showToast(res.message || 'Order cancelled successfully.', 'info');
+        showToast(res.message || 'Order cancelled successfully. Stock restored.', 'info');
         initOrdersPage();
+        closeOrderModal();
     } catch (err) {
         showToast(err.message || 'Failed to cancel order.', 'error');
     }

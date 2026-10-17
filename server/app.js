@@ -13,6 +13,23 @@ app.use(cors());
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
+// HTTP Security Headers
+app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    next();
+});
+
+// Guard against executing state mutations if JWT_SECRET is missing
+app.use((req, res, next) => {
+    if (!process.env.JWT_SECRET && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
+        return res.status(500).json({ error: 'Server configuration error: Critical security secrets are not configured.' });
+    }
+    next();
+});
+
 // Static frontend files
 const publicDir = path.resolve(__dirname, '..', 'public');
 app.use(express.static(publicDir));
@@ -44,18 +61,25 @@ app.use((err, req, res, next) => {
     console.error('Unhandled Server Error:', err);
 
     const statusCode = err.status || 500;
-    const message = process.env.NODE_ENV === 'production'
-        ? 'An unexpected internal server error occurred.'
-        : (err.message || 'Internal server error.');
+    let safeMessage = 'An unexpected internal server error occurred.';
 
-    return res.status(statusCode).json({ error: message });
+    if (process.env.NODE_ENV !== 'production' && err.message) {
+        // Only allow messages that don't contain SQL syntax or file paths
+        if (!err.message.includes('SQLITE_') && !err.message.includes('syntax') && !err.message.includes('\\') && !err.message.includes('/')) {
+            safeMessage = err.message;
+        }
+    }
+
+    return res.status(statusCode).json({ error: safeMessage });
 });
 
 // Start listening if not running in test mode
 const PORT = process.env.PORT || 3000;
 if (process.env.NODE_ENV !== 'test') {
     if (!process.env.JWT_SECRET) {
-        console.warn('⚠️  SECURITY WARNING: JWT_SECRET is not configured! Please define it in your .env file.');
+        console.error('FATAL CONFIGURATION ERROR: JWT_SECRET environment variable is missing!');
+        console.error('Please configure a secure JWT_SECRET in your .env file before starting ShopEasy.');
+        process.exit(1);
     }
     app.listen(PORT, () => {
         console.log(`====================================================`);

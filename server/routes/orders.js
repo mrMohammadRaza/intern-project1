@@ -2,14 +2,15 @@ const express = require('express');
 const router = express.Router();
 const { db } = require('../db');
 const authenticateToken = require('../middleware/auth');
-const { isValidPhone, isValidPincode } = require('../middleware/validate');
+const customerOnly = require('../middleware/customerOnly');
+const { isValidPhone, isValidPincode, isStrictPositiveInteger, parseStrictInteger } = require('../middleware/validate');
 
 /**
  * POST /api/orders
  * Customer: Place a new Cash on Delivery order from cart
  * Uses SQLite transaction for atomic order creation, stock deduction, and cart clearing.
  */
-router.post('/', authenticateToken, (req, res) => {
+router.post('/', authenticateToken, customerOnly, (req, res) => {
     try {
         const userId = req.user.id;
         const { shipping_name, shipping_phone, shipping_address, shipping_city, shipping_pincode } = req.body;
@@ -144,9 +145,10 @@ router.post('/', authenticateToken, (req, res) => {
             }
         });
     } catch (err) {
-        console.error('Error placing order:', err);
-        return res.status(err.message && err.message.includes('Stock conflict') ? 409 : 500).json({
-            error: err.message || 'Failed to process order. Please try again.'
+        console.error('Error placing order (technical details):', err);
+        const isConflict = err.message && (err.message.includes('Stock conflict') || err.message.includes('Insufficient stock'));
+        return res.status(isConflict ? 409 : 500).json({
+            error: isConflict ? err.message : 'Unable to complete checkout. Please review your cart and try again.'
         });
     }
 });
@@ -155,7 +157,7 @@ router.post('/', authenticateToken, (req, res) => {
  * GET /api/orders
  * Customer: Retrieve order history for current customer
  */
-router.get('/', authenticateToken, (req, res) => {
+router.get('/', authenticateToken, customerOnly, (req, res) => {
     try {
         const userId = req.user.id;
 
@@ -190,10 +192,10 @@ router.get('/', authenticateToken, (req, res) => {
  */
 router.get('/:id', authenticateToken, (req, res) => {
     try {
-        const orderId = parseInt(req.params.id, 10);
-        if (isNaN(orderId)) {
+        if (!isStrictPositiveInteger(req.params.id)) {
             return res.status(400).json({ error: 'Invalid order ID.' });
         }
+        const orderId = parseStrictInteger(req.params.id);
 
         const order = db.prepare(`
             SELECT o.*, u.email as user_email, u.name as customer_name
@@ -242,12 +244,12 @@ router.get('/:id', authenticateToken, (req, res) => {
  * Optional P3 Feature: Customer cancellation with transactional stock restoration
  * Allowed only when order status is 'Placed' and belongs to current customer
  */
-router.patch('/:id/cancel', authenticateToken, (req, res) => {
+router.patch('/:id/cancel', authenticateToken, customerOnly, (req, res) => {
     try {
-        const orderId = parseInt(req.params.id, 10);
-        if (isNaN(orderId)) {
+        if (!isStrictPositiveInteger(req.params.id)) {
             return res.status(400).json({ error: 'Invalid order ID.' });
         }
+        const orderId = parseStrictInteger(req.params.id);
 
         const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
         if (!order) {
@@ -267,8 +269,11 @@ router.patch('/:id/cancel', authenticateToken, (req, res) => {
 
         // Transaction to cancel order and restore product stock
         const cancelTransaction = db.transaction(() => {
-            // Update order status
-            db.prepare("UPDATE orders SET status = 'Cancelled' WHERE id = ?").run(orderId);
+            // Update order status atomically with check
+            const updateRes = db.prepare("UPDATE orders SET status = 'Cancelled' WHERE id = ? AND status = 'Placed'").run(orderId);
+            if (updateRes.changes === 0) {
+                throw new Error('Order is no longer in Placed status or has already been cancelled.');
+            }
 
             // Fetch items to restore stock
             const items = db.prepare('SELECT product_id, quantity FROM order_items WHERE order_id = ?').all(orderId);
@@ -279,7 +284,11 @@ router.patch('/:id/cancel', authenticateToken, (req, res) => {
             }
         });
 
-        cancelTransaction();
+        try {
+            cancelTransaction();
+        } catch (txErr) {
+            return res.status(400).json({ error: txErr.message || 'Order cannot be cancelled.' });
+        }
 
         return res.status(200).json({
             message: 'Order cancelled successfully. Product stock has been restored.',

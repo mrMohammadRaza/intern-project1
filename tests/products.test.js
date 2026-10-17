@@ -197,4 +197,141 @@ describe('Products & Categories API Tests', () => {
         expect(res.status).toBe(400);
         expect(res.body.error).toMatch(/assigned to/i);
     });
+
+    test('Regression: Malformed numeric inputs are strictly rejected (400)', async () => {
+        // 1. Malformed product ID
+        const idRes = await request(app).get('/api/products/12abc');
+        expect(idRes.status).toBe(400);
+
+        // 2. Malformed query parameters
+        const pageRes = await request(app).get('/api/products?page=1abc');
+        expect(pageRes.status).toBe(400);
+
+        const limitRes = await request(app).get('/api/products?limit=5xyz');
+        expect(limitRes.status).toBe(400);
+
+        const catRes = await request(app).get('/api/products?category=badcat');
+        expect(catRes.status).toBe(400);
+
+        // 3. Malformed price and stock in POST
+        const badPriceRes = await request(app)
+            .post('/api/products')
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send({
+                name: 'Malformed Input Item',
+                category_id: 1,
+                price: '1999abc',
+                stock: 10
+            });
+        expect(badPriceRes.status).toBe(400);
+
+        const badStockRes = await request(app)
+            .post('/api/products')
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send({
+                name: 'Malformed Input Item 2',
+                category_id: 1,
+                price: 199900,
+                stock: '5xyz'
+            });
+        expect(badStockRes.status).toBe(400);
+    });
+
+    test('Regression: Inactive products are hidden from public listing and detail, accessible only by admin', async () => {
+        // 1. Create an inactive product as Admin
+        const createRes = await request(app)
+            .post('/api/products')
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send({
+                name: 'Secret Inactive Prototype',
+                description: 'Should not be seen by public shoppers',
+                category_id: 1,
+                price: 999900,
+                stock: 5,
+                is_active: 0
+            });
+        expect(createRes.status).toBe(201);
+        const inactiveId = createRes.body.product.id;
+
+        // 2. Public products list should NOT contain this inactive product
+        const publicListRes = await request(app).get('/api/products?limit=100');
+        expect(publicListRes.status).toBe(200);
+        const foundInList = publicListRes.body.products.some(p => p.id === inactiveId);
+        expect(foundInList).toBe(false);
+
+        // 3. Public guest GET /api/products/:id should return 404 for inactive product
+        const publicDetailRes = await request(app).get(`/api/products/${inactiveId}`);
+        expect(publicDetailRes.status).toBe(404);
+
+        // 4. Authenticated admin GET /api/products/:id can access the inactive product
+        const adminDetailRes = await request(app)
+            .get(`/api/products/${inactiveId}`)
+            .set('Authorization', `Bearer ${adminToken}`);
+        expect(adminDetailRes.status).toBe(200);
+        expect(adminDetailRes.body.product.id).toBe(inactiveId);
+        expect(adminDetailRes.body.product.is_active).toBe(0);
+
+        // Clean up: delete test product
+        await request(app)
+            .delete(`/api/products/${inactiveId}`)
+            .set('Authorization', `Bearer ${adminToken}`);
+    });
+
+    test('Regression: Strict numeric validation in PUT and DELETE product endpoints (400)', async () => {
+        // 1. Malformed product ID in PUT
+        const badPutId = await request(app)
+            .put('/api/products/12abc')
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send({
+                name: 'Updated Item',
+                category_id: 1,
+                price: 199900,
+                stock: 10
+            });
+        expect(badPutId.status).toBe(400);
+
+        // 2. Malformed fields in PUT body
+        const badPutPrice = await request(app)
+            .put('/api/products/1')
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send({
+                name: 'Updated Item',
+                category_id: 1,
+                price: '999abc',
+                stock: 10
+            });
+        expect(badPutPrice.status).toBe(400);
+
+        const badPutStock = await request(app)
+            .put('/api/products/1')
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send({
+                name: 'Updated Item',
+                category_id: 1,
+                price: 99900,
+                stock: 'bad_stock'
+            });
+        expect(badPutStock.status).toBe(400);
+
+        // 3. Malformed product ID in DELETE
+        const badDelId = await request(app)
+            .delete('/api/products/12abc')
+            .set('Authorization', `Bearer ${adminToken}`);
+        expect(badDelId.status).toBe(400);
+    });
+
+    test('Regression: Rejects invalid product image URLs (400)', async () => {
+        const res = await request(app)
+            .post('/api/products')
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send({
+                name: 'Bad Image Item',
+                category_id: 1,
+                price: 199900,
+                stock: 5,
+                image_url: 'not-a-valid-url-format'
+            });
+        expect(res.status).toBe(400);
+        expect(res.body.error).toMatch(/valid http or https url/i);
+    });
 });

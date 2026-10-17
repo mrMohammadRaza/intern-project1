@@ -3,6 +3,7 @@ const router = express.Router();
 const { db } = require('../db');
 const authenticateToken = require('../middleware/auth');
 const adminOnly = require('../middleware/adminOnly');
+const { isStrictPositiveInteger, parseStrictInteger } = require('../middleware/validate');
 
 // Enforce admin authentication on all admin endpoints
 router.use(authenticateToken, adminOnly);
@@ -129,10 +130,10 @@ router.get('/orders', (req, res) => {
  */
 router.patch('/orders/:id/status', (req, res) => {
     try {
-        const orderId = parseInt(req.params.id, 10);
-        if (isNaN(orderId)) {
+        if (!isStrictPositiveInteger(req.params.id)) {
             return res.status(400).json({ error: 'Invalid order ID.' });
         }
+        const orderId = parseStrictInteger(req.params.id);
 
         const { status } = req.body;
         const validStatuses = ['Placed', 'Shipped', 'Delivered', 'Cancelled'];
@@ -149,6 +150,13 @@ router.patch('/orders/:id/status', (req, res) => {
         }
 
         // Validate state transitions
+        const VALID_TRANSITIONS = {
+            'Placed': ['Shipped', 'Cancelled'],
+            'Shipped': ['Delivered', 'Cancelled'],
+            'Delivered': [],
+            'Cancelled': []
+        };
+
         if (order.status === status) {
             return res.status(200).json({
                 message: `Order status is already "${status}".`,
@@ -156,7 +164,7 @@ router.patch('/orders/:id/status', (req, res) => {
             });
         }
 
-        if (order.status === 'Delivered' && status !== 'Delivered') {
+        if (order.status === 'Delivered') {
             return res.status(400).json({
                 error: 'Delivered orders cannot be altered or reopened.'
             });
@@ -168,10 +176,20 @@ router.patch('/orders/:id/status', (req, res) => {
             });
         }
 
-        // If cancelling, restore stock
+        const allowedNext = VALID_TRANSITIONS[order.status] || [];
+        if (!allowedNext.includes(status)) {
+            return res.status(400).json({
+                error: `Invalid status transition from "${order.status}" to "${status}".`
+            });
+        }
+
+        // If cancelling, restore stock atomically
         if (status === 'Cancelled') {
             const cancelTx = db.transaction(() => {
-                db.prepare('UPDATE orders SET status = ? WHERE id = ?').run('Cancelled', orderId);
+                const updateRes = db.prepare("UPDATE orders SET status = 'Cancelled' WHERE id = ? AND status != 'Cancelled'").run(orderId);
+                if (updateRes.changes === 0) {
+                    throw new Error('Order is already cancelled.');
+                }
                 const items = db.prepare('SELECT product_id, quantity FROM order_items WHERE order_id = ?').all(orderId);
                 const restoreStmt = db.prepare('UPDATE products SET stock = stock + ? WHERE id = ?');
                 for (const item of items) {

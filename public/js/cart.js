@@ -5,8 +5,10 @@
 document.addEventListener('DOMContentLoaded', () => {
     if (Auth.requireAuth()) {
         if (Auth.isAdmin()) {
-            alert('Administrators do not have a shopping cart. Redirecting to Admin Dashboard.');
-            window.location.href = '/admin/dashboard.html';
+            showToast('Administrators do not have a customer cart. Redirecting to Admin Dashboard.', 'info');
+            setTimeout(() => {
+                window.location.href = '/admin/dashboard.html';
+            }, 800);
             return;
         }
         loadCart();
@@ -174,9 +176,7 @@ async function loadCart() {
 
 async function updateItemQuantity(itemId, newQty, availableStock) {
     if (newQty < 1) {
-        if (confirm('Do you want to remove this item from your cart?')) {
-            removeItem(itemId);
-        }
+        removeItem(itemId);
         return;
     }
 
@@ -198,6 +198,16 @@ async function updateItemQuantity(itemId, newQty, availableStock) {
 }
 
 async function removeItem(itemId) {
+    const confirmed = await showConfirmDialog({
+        title: 'Remove Item',
+        message: 'Are you sure you want to remove this item from your shopping bag?',
+        confirmText: 'Remove',
+        cancelText: 'Keep Item',
+        type: 'danger'
+    });
+
+    if (!confirmed) return;
+
     try {
         await apiFetch(`/cart/${itemId}`, {
             method: 'DELETE'

@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const { db } = require('../db');
 const authenticateToken = require('../middleware/auth');
 const { isValidEmail, isValidPhone } = require('../middleware/validate');
+const { loginLimiter } = require('../middleware/rateLimiter');
 
 /**
  * POST /api/auth/register
@@ -29,6 +30,13 @@ router.post('/register', async (req, res) => {
 
         if (phone && !isValidPhone(phone)) {
             return res.status(400).json({ error: 'Please enter a valid 10-digit mobile number.' });
+        }
+
+        // Verify JWT secret is configured before performing database mutations
+        const secret = process.env.JWT_SECRET;
+        if (!secret) {
+            console.error('FATAL: JWT_SECRET environment variable is not defined!');
+            return res.status(500).json({ error: 'Server configuration error.' });
         }
 
         const trimmedEmail = email.trim().toLowerCase();
@@ -59,13 +67,6 @@ router.post('/register', async (req, res) => {
         const newUserId = result.lastInsertRowid;
         const user = db.prepare('SELECT id, name, email, role, phone, address, created_at FROM users WHERE id = ?').get(newUserId);
 
-        // Ensure JWT secret is configured
-        const secret = process.env.JWT_SECRET;
-        if (!secret) {
-            console.error('FATAL: JWT_SECRET environment variable is not defined!');
-            return res.status(500).json({ error: 'Server configuration error.' });
-        }
-
         // Sign JWT
         const token = jwt.sign(
             { id: user.id, role: user.role },
@@ -88,12 +89,19 @@ router.post('/register', async (req, res) => {
  * POST /api/auth/login
  * Public authentication for customers and administrators
  */
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter.middleware('Too many login attempts. Please try again after 15 minutes.'), async (req, res) => {
     try {
         const { email, password } = req.body;
 
         if (!email || !password) {
             return res.status(400).json({ error: 'Email and password are required.' });
+        }
+
+        // Ensure JWT secret is configured
+        const secret = process.env.JWT_SECRET;
+        if (!secret) {
+            console.error('FATAL: JWT_SECRET environment variable is not defined!');
+            return res.status(500).json({ error: 'Server configuration error.' });
         }
 
         const trimmedEmail = email.trim().toLowerCase();
@@ -108,12 +116,6 @@ router.post('/login', async (req, res) => {
             return res.status(401).json({ error: 'Invalid email or password.' });
         }
 
-        // Ensure JWT secret is configured
-        const secret = process.env.JWT_SECRET;
-        if (!secret) {
-            console.error('FATAL: JWT_SECRET environment variable is not defined!');
-            return res.status(500).json({ error: 'Server configuration error.' });
-        }
 
         // Generate JWT token
         const token = jwt.sign(

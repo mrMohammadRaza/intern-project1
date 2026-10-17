@@ -39,7 +39,7 @@ Base URL: `http://localhost:3000/api`
 
 ### User Login
 - **Endpoint:** `POST /api/auth/login`
-- **Access:** Public
+- **Access:** Public (Rate-Limited: 10 attempts per 15-minute sliding window)
 - **Request Body:**
   ```json
   {
@@ -59,6 +59,12 @@ Base URL: `http://localhost:3000/api`
       "role": "admin",
       "phone": "9876543210"
     }
+  }
+  ```
+- **Response (429 Too Many Requests):** Returned when exceeding 10 failed or repeated requests in a 15-minute window.
+  ```json
+  {
+    "error": "Too many requests. Please try again in 15 minutes."
   }
   ```
 
@@ -259,15 +265,16 @@ Base URL: `http://localhost:3000/api`
 
 ### Customer Order History
 - **Endpoint:** `GET /api/orders`
-- **Access:** Authenticated Customer
+- **Access:** Authenticated Customer Only
 
 ### Get Order Details
 - **Endpoint:** `GET /api/orders/:id`
-- **Access:** Customer (own orders) / Admin (any order)
+- **Access:** Customer (own orders only) / Admin (any order)
 
 ### Cancel Order (Placed Only)
 - **Endpoint:** `PATCH /api/orders/:id/cancel`
-- **Access:** Customer / Admin
+- **Access:** Authenticated Customer Only
+- **Execution:** Atomic check-and-set query (`WHERE id = ? AND status = 'Placed'`) guaranteeing that stock restoration occurs exactly once and cannot be duplicated via repeated requests.
 
 ---
 
@@ -294,9 +301,16 @@ Base URL: `http://localhost:3000/api`
 ### All Orders
 - **Endpoint:** `GET /api/admin/orders`
 - **Access:** Admin only
-- **Query Params:** `status`, `search`
+- **Query Params:** `status` (Placed | Shipped | Delivered | Cancelled), `search` (customer name, email, order ID)
 
 ### Update Order Status
 - **Endpoint:** `PATCH /api/admin/orders/:id/status`
 - **Access:** Admin only
 - **Request Body:** `{"status": "Shipped"}`
+- **Lifecycle Transition Rules:**
+  - `Placed` &rarr; `Shipped` or `Cancelled`
+  - `Shipped` &rarr; `Delivered` or `Cancelled`
+  - `Delivered` &rarr; Terminal (no further changes permitted)
+  - `Cancelled` &rarr; Terminal (no further changes permitted)
+  - Admin cancellation of a `Placed` or `Shipped` order automatically and atomically restores item quantities back to product stock.
+  - Invalid transitions (e.g., `Shipped` &rarr; `Placed`) return `400 Bad Request`.

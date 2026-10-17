@@ -244,4 +244,129 @@ describe('Orders & Checkout API Tests', () => {
         expect(res.status).toBe(400);
         expect(res.body.error).toMatch(/Delivered orders cannot be altered/i);
     });
+
+    test('Regression: Malformed order IDs are strictly rejected across customer and admin routes (400)', async () => {
+        // Customer GET order with malformed ID
+        const getRes = await request(app)
+            .get('/api/orders/12abc')
+            .set('Authorization', `Bearer ${customerToken}`);
+        expect(getRes.status).toBe(400);
+
+        // Customer PATCH cancel with malformed ID
+        const cancelRes = await request(app)
+            .patch('/api/orders/12abc/cancel')
+            .set('Authorization', `Bearer ${customerToken}`);
+        expect(cancelRes.status).toBe(400);
+
+        // Admin PATCH status with malformed ID
+        const adminPatchRes = await request(app)
+            .patch('/api/admin/orders/12abc/status')
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send({ status: 'Shipped' });
+        expect(adminPatchRes.status).toBe(400);
+    });
+
+    test('Regression: Admin cannot perform customer-only order operations (403)', async () => {
+        // Admin cannot place retail orders
+        const placeRes = await request(app)
+            .post('/api/orders')
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send({
+                shipping_name: 'Admin User',
+                shipping_phone: '9876543210',
+                shipping_address: '101 Admin Towers',
+                shipping_city: 'Tech City',
+                shipping_pincode: '560001'
+            });
+        expect(placeRes.status).toBe(403);
+        expect(placeRes.body.error).toMatch(/Customer privileges required/i);
+
+        // Admin cannot query customer order list directly
+        const listRes = await request(app)
+            .get('/api/orders')
+            .set('Authorization', `Bearer ${adminToken}`);
+        expect(listRes.status).toBe(403);
+    });
+
+    test('Regression: Invalid order status transitions are rejected with 400', async () => {
+        // Place an order
+        await request(app)
+            .post('/api/cart')
+            .set('Authorization', `Bearer ${customerToken}`)
+            .send({ product_id: 1, quantity: 1 });
+
+        const placeRes = await request(app)
+            .post('/api/orders')
+            .set('Authorization', `Bearer ${customerToken}`)
+            .send({
+                shipping_name: 'Test Customer',
+                shipping_phone: '9876543210',
+                shipping_address: 'Indiranagar 100ft road',
+                shipping_city: 'Bengaluru',
+                shipping_pincode: '560038'
+            });
+        const orderId = placeRes.body.order.id;
+
+        // Transition Placed -> Shipped (Valid)
+        const shipRes = await request(app)
+            .patch(`/api/admin/orders/${orderId}/status`)
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send({ status: 'Shipped' });
+        expect(shipRes.status).toBe(200);
+
+        // Attempt backward transition: Shipped -> Placed (Invalid!)
+        const backRes = await request(app)
+            .patch(`/api/admin/orders/${orderId}/status`)
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send({ status: 'Placed' });
+        expect(backRes.status).toBe(400);
+        expect(backRes.body.error).toMatch(/Invalid status transition/i);
+    });
+
+    test('Regression: Repeated cancellation cannot restore inventory stock more than once', async () => {
+        // Record initial stock of product 2
+        const p2Initial = db.prepare('SELECT stock FROM products WHERE id = 2').get();
+
+        // 1. Customer adds 2 units to cart and checks out
+        await request(app)
+            .post('/api/cart')
+            .set('Authorization', `Bearer ${customerToken}`)
+            .send({ product_id: 2, quantity: 2 });
+
+        const placeRes = await request(app)
+            .post('/api/orders')
+            .set('Authorization', `Bearer ${customerToken}`)
+            .send({
+                shipping_name: 'Test Customer',
+                shipping_phone: '9876543210',
+                shipping_address: '12 Brigade Road',
+                shipping_city: 'Bengaluru',
+                shipping_pincode: '560025'
+            });
+        expect(placeRes.status).toBe(201);
+        const orderId = placeRes.body.order.id;
+
+        // Stock decreased by 2
+        const p2AfterOrder = db.prepare('SELECT stock FROM products WHERE id = 2').get();
+        expect(p2AfterOrder.stock).toBe(p2Initial.stock - 2);
+
+        // 2. First cancellation succeeds and restores stock
+        const firstCancel = await request(app)
+            .patch(`/api/orders/${orderId}/cancel`)
+            .set('Authorization', `Bearer ${customerToken}`);
+        expect(firstCancel.status).toBe(200);
+
+        const p2AfterCancel1 = db.prepare('SELECT stock FROM products WHERE id = 2').get();
+        expect(p2AfterCancel1.stock).toBe(p2Initial.stock);
+
+        // 3. Repeated cancellation MUST be rejected and MUST NOT restore stock again
+        const secondCancel = await request(app)
+            .patch(`/api/orders/${orderId}/cancel`)
+            .set('Authorization', `Bearer ${customerToken}`);
+        expect(secondCancel.status).toBe(400);
+
+        // Stock remains identical to initial, NOT over-incremented
+        const p2AfterCancel2 = db.prepare('SELECT stock FROM products WHERE id = 2').get();
+        expect(p2AfterCancel2.stock).toBe(p2Initial.stock);
+    });
 });

@@ -82,10 +82,33 @@ async function initAdminDashboard() {
  * ----------------------------------------------------
  */
 let adminCategoriesList = [];
+let adminProductSearchDebounce = null;
 
 async function initAdminProducts() {
+    setupAdminProductFilters();
     await loadAdminCategories();
     await loadAdminProductsTable();
+}
+
+function setupAdminProductFilters() {
+    const searchInput = document.getElementById('admin-product-search');
+    const catFilter = document.getElementById('admin-product-category-filter');
+    const statusFilter = document.getElementById('admin-product-status-filter');
+
+    if (searchInput) {
+        searchInput.addEventListener('input', () => {
+            clearTimeout(adminProductSearchDebounce);
+            adminProductSearchDebounce = setTimeout(() => loadAdminProductsTable(), 250);
+        });
+    }
+
+    if (catFilter) {
+        catFilter.addEventListener('change', () => loadAdminProductsTable());
+    }
+
+    if (statusFilter) {
+        statusFilter.addEventListener('change', () => loadAdminProductsTable());
+    }
 }
 
 async function loadAdminCategories() {
@@ -101,6 +124,15 @@ async function loadAdminCategories() {
             });
             catSelect.innerHTML = html;
         }
+
+        const catFilter = document.getElementById('admin-product-category-filter');
+        if (catFilter) {
+            let filterHtml = '<option value="">All Categories</option>';
+            adminCategoriesList.forEach(c => {
+                filterHtml += `<option value="${c.id}">${escapeHtml(c.name)}</option>`;
+            });
+            catFilter.innerHTML = filterHtml;
+        }
     } catch (err) {
         console.error('Error fetching categories for admin:', err);
     }
@@ -110,14 +142,45 @@ async function loadAdminProductsTable() {
     const tbody = document.getElementById('admin-products-tbody');
     if (!tbody) return;
 
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:2rem;">⏳ Loading products...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:2rem;">⏳ Loading products...</td></tr>`;
+
+    const searchQuery = document.getElementById('admin-product-search')?.value.trim().toLowerCase() || '';
+    const categoryId = document.getElementById('admin-product-category-filter')?.value || '';
+    const statusVal = document.getElementById('admin-product-status-filter')?.value || 'all';
 
     try {
         const data = await apiFetch('/products?status=all&limit=100');
-        const products = data.products || [];
+        let products = data.products || [];
+
+        // Apply in-memory filters for real-time reactivity
+        if (searchQuery) {
+            products = products.filter(p => 
+                p.name.toLowerCase().includes(searchQuery) || 
+                (p.description && p.description.toLowerCase().includes(searchQuery)) ||
+                String(p.id) === searchQuery
+            );
+        }
+
+        if (categoryId) {
+            products = products.filter(p => String(p.category_id) === String(categoryId));
+        }
+
+        if (statusVal === 'active') {
+            products = products.filter(p => p.is_active === 1);
+        } else if (statusVal === 'inactive') {
+            products = products.filter(p => p.is_active === 0);
+        }
 
         if (products.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:2rem;">No products found. Click "Add Product" to create one.</td></tr>`;
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" style="text-align:center; padding:3rem;">
+                        <div style="font-size:1.5rem; margin-bottom:0.5rem;">🔍</div>
+                        <strong style="color:var(--dark);">No products match your filter criteria</strong>
+                        <p style="color:var(--text-muted); font-size:0.88rem; margin-top:0.25rem;">Try adjusting your keyword or category filter.</p>
+                    </td>
+                </tr>
+            `;
             return;
         }
 
@@ -169,7 +232,7 @@ async function loadAdminProductsTable() {
 
         tbody.innerHTML = html;
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--danger); padding:2rem;">${escapeHtml(err.message)}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--danger); padding:2rem;">${escapeHtml(err.message)}</td></tr>`;
     }
 }
 
@@ -269,7 +332,13 @@ async function handleSaveProduct(e) {
 }
 
 async function deleteProduct(productId, productName) {
-    if (!confirm(`Are you sure you want to delete or deactivate "${productName}"?`)) {
+    const confirmed = await showConfirmDialog({
+        title: 'Delete Product',
+        message: `Are you sure you want to delete or deactivate "${productName}"?`,
+        confirmText: 'Delete Product',
+        type: 'danger'
+    });
+    if (!confirmed) {
         return;
     }
 
@@ -514,7 +583,13 @@ async function handleEditCategory(categoryId, currentName) {
 }
 
 async function handleDeleteCategory(categoryId, categoryName) {
-    if (!confirm(`Are you sure you want to delete category "${categoryName}"? (Deletion will be safely rejected if products are assigned).`)) {
+    const confirmed = await showConfirmDialog({
+        title: 'Delete Category',
+        message: `Are you sure you want to delete category "${categoryName}"? Deletion will be rejected if products are assigned to this category.`,
+        confirmText: 'Delete Category',
+        type: 'danger'
+    });
+    if (!confirmed) {
         return;
     }
 

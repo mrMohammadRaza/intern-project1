@@ -53,8 +53,10 @@ const Auth = {
             return false;
         }
         if (!this.isAdmin()) {
-            alert('Access denied. Administrator privileges are required.');
-            window.location.href = '/index.html';
+            showToast('Access denied. Administrator privileges are required.', 'error');
+            setTimeout(() => {
+                window.location.href = '/index.html';
+            }, 600);
             return false;
         }
         return true;

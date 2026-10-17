@@ -5,8 +5,8 @@
 document.addEventListener('DOMContentLoaded', () => {
     if (Auth.requireAuth()) {
         if (Auth.isAdmin()) {
-            alert('Administrators cannot checkout.');
-            window.location.href = '/admin/dashboard.html';
+            showToast('Administrators cannot checkout. Redirecting to admin portal...', 'warning');
+            setTimeout(() => { window.location.href = '/admin/dashboard.html'; }, 1200);
             return;
         }
         initCheckout();
@@ -25,8 +25,8 @@ async function initCheckout() {
         const items = currentCartData.items || [];
 
         if (items.length === 0) {
-            alert('Your cart is empty. Please add products before checking out.');
-            window.location.href = '/index.html';
+            showToast('Your cart is empty. Please add products before checking out.', 'warning');
+            setTimeout(() => { window.location.href = '/index.html'; }, 1200);
             return;
         }
 

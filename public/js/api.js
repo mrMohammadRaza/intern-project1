@@ -128,3 +128,74 @@ async function updateCartBadge() {
         badge.style.display = 'none';
     }
 }
+
+/**
+ * Show Accessible Confirmation Dialog (replacing browser native confirm)
+ * @param {Object} options
+ * @param {string} options.title - Dialog heading
+ * @param {string} options.message - Confirmation text explanation
+ * @param {string} [options.confirmText='Confirm'] - Action button text
+ * @param {string} [options.cancelText='Cancel'] - Dismiss button text
+ * @param {'danger'|'primary'} [options.type='primary'] - Button theme
+ * @returns {Promise<boolean>}
+ */
+function showConfirmDialog({ title = 'Confirm Action', message, confirmText = 'Confirm', cancelText = 'Cancel', type = 'primary' }) {
+    return new Promise((resolve) => {
+        const existing = document.getElementById('shopeasy-confirm-dialog');
+        if (existing) existing.remove();
+
+        const backdrop = document.createElement('div');
+        backdrop.id = 'shopeasy-confirm-dialog';
+        backdrop.className = 'confirm-dialog-backdrop';
+        backdrop.setAttribute('role', 'dialog');
+        backdrop.setAttribute('aria-modal', 'true');
+        backdrop.setAttribute('aria-labelledby', 'confirm-dialog-title');
+
+        backdrop.innerHTML = `
+            <div class="confirm-dialog-card" tabindex="-1">
+                <div class="confirm-dialog-header">
+                    <span class="confirm-dialog-icon ${type === 'danger' ? 'danger' : 'primary'}">
+                        ${type === 'danger' ? '⚠️' : '❓'}
+                    </span>
+                    <h3 id="confirm-dialog-title" class="confirm-dialog-title">${escapeHtml(title)}</h3>
+                </div>
+                <p class="confirm-dialog-message">${escapeHtml(message)}</p>
+                <div class="confirm-dialog-actions">
+                    <button type="button" class="btn btn-outline" id="confirm-cancel-btn">${escapeHtml(cancelText)}</button>
+                    <button type="button" class="btn ${type === 'danger' ? 'btn-danger' : 'btn-primary'}" id="confirm-ok-btn">${escapeHtml(confirmText)}</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(backdrop);
+        setTimeout(() => backdrop.classList.add('open'), 10);
+
+        const cancelBtn = backdrop.querySelector('#confirm-cancel-btn');
+        const okBtn = backdrop.querySelector('#confirm-ok-btn');
+        okBtn.focus();
+
+        function cleanup(result) {
+            backdrop.classList.remove('open');
+            setTimeout(() => {
+                backdrop.remove();
+                resolve(result);
+            }, 200);
+            document.removeEventListener('keydown', keyHandler);
+        }
+
+        function keyHandler(e) {
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                cleanup(false);
+            }
+        }
+
+        document.addEventListener('keydown', keyHandler);
+        cancelBtn.addEventListener('click', () => cleanup(false));
+        okBtn.addEventListener('click', () => cleanup(true));
+
+        backdrop.addEventListener('click', (e) => {
+            if (e.target === backdrop) cleanup(false);
+        });
+    });
+}

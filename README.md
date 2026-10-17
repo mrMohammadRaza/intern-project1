@@ -153,12 +153,26 @@ NODE_ENV=development
 > > [!WARNING]
 > > The application employs fail-safe configuration checking at startup. If `JWT_SECRET` is missing or undefined, the server will log an explicit error and terminate safely rather than accepting insecure requests.
 
-### Step 4: Initialize and Seed the SQLite Database
-Run the automated seed runner:
+### Step 4: Initialize the Database
+
+#### For Local Development & Testing:
+Run the development seed script:
 ```bash
 npm run seed
 ```
-This script creates tables with constraints and indexes (if not already existing) and seeds initial categories, products, and default accounts.
+> [!NOTE]
+> This script is strictly restricted to non-production environments (`NODE_ENV !== 'production'`). It creates the schema and seeds sample categories, catalog products, and local demo accounts for testing.
+
+#### For Production Environments (Secure First-Admin Setup):
+In production, automatic seeding of demo accounts with public passwords is strictly disabled. To provision your initial administrator safely:
+```bash
+# Explicit first-admin setup (generates a secure random password if --password is not provided):
+npm run create-admin -- --email=admin@yourdomain.com --name="System Administrator"
+
+# Or provide your own secure password:
+npm run create-admin -- --email=admin@yourdomain.com --name="System Administrator" --password="YourComplexPassword123!"
+```
+The script hashes the password with bcrypt (10 rounds) and sets `role = 'admin'` directly in the database. Public registration endpoints strictly forbid self-registration as an administrator.
 
 ---
 
@@ -181,17 +195,17 @@ http://localhost:3000
 
 ---
 
-## 7. Demo Accounts (Development & Review Only)
+## 7. Demo Accounts (Local Development Only)
 
-> [!WARNING]
-> **DEVELOPMENT & EVALUATION USE ONLY:** The accounts below are seeded exclusively for local evaluation, portfolio demonstration, and integration tests. In production environments, credentials must be generated uniquely, rotated regularly, and protected via strict secret managers.
+> [!CAUTION]
+> **LOCAL DEVELOPMENT & TESTING ONLY:** The accounts below are created strictly in `development` or `test` mode when running `npm run seed`. In `production`, startup and initialization never create or seed these demo accounts. Production administrator accounts must be provisioned via the secure CLI command `npm run create-admin`.
 
 | Role | Email | Password | Access Privileges |
 | :--- | :--- | :--- | :--- |
 | **Administrator** | `admin@shopeasy.com` | `Admin@123` | Admin Portal, Real-time DB Metrics, Catalog CRUD, Order Fulfilment |
 | **Customer** | `customer@shopeasy.com` | `Customer@123` | Browsing, Cart Management, COD Checkout, Order Tracking & Cancellation |
 
-*(Note: On `login.html`, click the quick-fill chips under the login form to automatically populate either account for rapid demonstration.)*
+*(Note: In local development, the quick-fill chips on `login.html` populate these credentials for convenient review.)*
 
 ---
 

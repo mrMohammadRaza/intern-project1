@@ -11,6 +11,27 @@ async function initOrdersPage() {
     const container = document.getElementById('orders-list-container');
     if (!container) return;
 
+    if (!container.dataset.delegated) {
+        container.dataset.delegated = 'true';
+        container.addEventListener('click', (e) => {
+            const viewBtn = e.target.closest('.action-view-order');
+            if (viewBtn) {
+                viewOrderDetails(Number(viewBtn.dataset.orderId));
+                return;
+            }
+            const cancelBtn = e.target.closest('.action-cancel-order');
+            if (cancelBtn) {
+                cancelOrder(Number(cancelBtn.dataset.orderId));
+                return;
+            }
+            const retryBtn = e.target.closest('.action-retry-orders');
+            if (retryBtn) {
+                initOrdersPage();
+                return;
+            }
+        });
+    }
+
     container.innerHTML = `<p style="text-align:center; padding:3rem;">⏳ Loading your order history...</p>`;
 
     try {
@@ -78,11 +99,11 @@ async function initOrdersPage() {
                     </div>
 
                     <div style="margin-top:1.25rem; display:flex; justify-content:flex-end; gap:0.75rem; border-top:1px solid #f1f5f9; padding-top:1rem;">
-                        <button class="btn btn-outline btn-sm" onclick="viewOrderDetails(${order.id})">
+                        <button type="button" class="btn btn-outline btn-sm action-view-order" data-order-id="${order.id}">
                             🔍 View Details
                         </button>
                         ${canCancel ? `
-                            <button class="btn btn-danger btn-sm" onclick="cancelOrder(${order.id})">
+                            <button type="button" class="btn btn-danger btn-sm action-cancel-order" data-order-id="${order.id}">
                                 ✕ Cancel Order
                             </button>
                         ` : ''}
@@ -98,7 +119,7 @@ async function initOrdersPage() {
                 <div class="empty-icon">⚠️</div>
                 <h3>Failed to load orders</h3>
                 <p>${escapeHtml(err.message)}</p>
-                <button class="btn btn-primary" onclick="initOrdersPage()">Retry</button>
+                <button type="button" class="btn btn-primary action-retry-orders">Retry</button>
             </div>
         `;
     }
@@ -218,12 +239,22 @@ async function viewOrderDetails(orderId) {
 
             ${order.status === 'Placed' ? `
                 <div style="margin-top:1.5rem; text-align:right;">
-                    <button class="btn btn-danger btn-sm" onclick="cancelOrder(${order.id})">
+                    <button type="button" class="btn btn-danger btn-sm action-cancel-order" data-order-id="${order.id}">
                         ✕ Cancel This Order
                     </button>
                 </div>
             ` : ''}
         `;
+
+        if (!content.dataset.delegated) {
+            content.dataset.delegated = 'true';
+            content.addEventListener('click', (e) => {
+                const cancelBtn = e.target.closest('.action-cancel-order');
+                if (cancelBtn) {
+                    cancelOrder(Number(cancelBtn.dataset.orderId));
+                }
+            });
+        }
 
         modal.classList.add('open');
     } catch (err) {

@@ -34,13 +34,13 @@ async function loadCategories() {
 
         if (pillsContainer) {
             let pillsHtml = `
-                <button class="pill-btn active" data-category="all" onclick="selectCategory('all', this)">
+                <button type="button" class="pill-btn active" data-category="all">
                     All Products
                 </button>
             `;
             categories.forEach(cat => {
                 pillsHtml += `
-                    <button class="pill-btn" data-category="${cat.id}" onclick="selectCategory('${cat.id}', this)">
+                    <button type="button" class="pill-btn" data-category="${cat.id}">
                         ${escapeHtml(cat.name)} (${cat.product_count})
                     </button>
                 `;
@@ -64,6 +64,51 @@ async function loadCategories() {
  * Setup Event Listeners on Search and Sort Controls
  */
 function setupEventListeners() {
+    const pillsContainer = document.getElementById('category-pills');
+    if (pillsContainer && !pillsContainer.dataset.delegated) {
+        pillsContainer.dataset.delegated = 'true';
+        pillsContainer.addEventListener('click', (e) => {
+            const btn = e.target.closest('.pill-btn');
+            if (btn && btn.dataset.category) {
+                selectCategory(btn.dataset.category, btn);
+            }
+        });
+    }
+
+    const grid = document.getElementById('products-grid');
+    if (grid && !grid.dataset.delegated) {
+        grid.dataset.delegated = 'true';
+        grid.addEventListener('click', (e) => {
+            const addBtn = e.target.closest('.action-add-to-cart');
+            if (addBtn && !addBtn.disabled) {
+                const pid = Number(addBtn.dataset.productId);
+                handleAddToCart(pid, 1, addBtn);
+                return;
+            }
+            const resetBtn = e.target.closest('.action-reset-filters');
+            if (resetBtn) {
+                resetFilters();
+                return;
+            }
+            const retryBtn = e.target.closest('.action-retry-products');
+            if (retryBtn) {
+                fetchProducts();
+                return;
+            }
+        });
+    }
+
+    const paginationContainer = document.getElementById('pagination-container');
+    if (paginationContainer && !paginationContainer.dataset.delegated) {
+        paginationContainer.dataset.delegated = 'true';
+        paginationContainer.addEventListener('click', (e) => {
+            const pageBtn = e.target.closest('.page-btn');
+            if (pageBtn && !pageBtn.disabled && pageBtn.dataset.page) {
+                goToPage(Number(pageBtn.dataset.page));
+            }
+        });
+    }
+
     const searchInput = document.getElementById('product-search');
     if (searchInput) {
         searchInput.addEventListener('input', (e) => {
@@ -143,15 +188,13 @@ async function fetchProducts() {
 
         const data = await apiFetch(`/products?${queryParams.toString()}`);
         const products = data.products || [];
-        const pagination = data.pagination || { page: 1, totalPages: 1 };
-
-        if (products.length === 0) {
+        const pagination = data.pagination || { page: 1, totalPages: 1 };        if (products.length === 0) {
             grid.innerHTML = `
                 <div class="empty-state" style="grid-column: 1 / -1;">
                     <div class="empty-icon">🔍</div>
                     <h3>No products found</h3>
                     <p>We couldn't find any products matching your search criteria. Try adjusting your filters.</p>
-                    <button class="btn btn-outline" onclick="resetFilters()">Reset All Filters</button>
+                    <button type="button" class="btn btn-outline action-reset-filters">Reset All Filters</button>
                 </div>
             `;
             if (paginationContainer) paginationContainer.innerHTML = '';
@@ -182,9 +225,9 @@ async function fetchProducts() {
                         <p class="card-desc">${escapeHtml(p.description || '')}</p>
                         <div class="card-footer">
                             <span class="price-tag">${formatRupees(p.price)}</span>
-                            <button class="btn btn-primary btn-sm" 
+                            <button type="button" class="btn btn-primary btn-sm action-add-to-cart" 
                                     id="add-to-cart-btn-${p.id}"
-                                    onclick="handleAddToCart(${p.id}, 1, this)"
+                                    data-product-id="${p.id}"
                                     ${isOutOfStock ? 'disabled title="Out of stock"' : ''}>
                                 ${isOutOfStock ? 'Sold Out' : '+ Cart'}
                             </button>
@@ -203,7 +246,7 @@ async function fetchProducts() {
                 <div class="empty-icon">⚠️</div>
                 <h3>Failed to load products</h3>
                 <p>${escapeHtml(err.message)}</p>
-                <button class="btn btn-primary" onclick="fetchProducts()">Retry</button>
+                <button type="button" class="btn btn-primary action-retry-products">Retry</button>
             </div>
         `;
     }
@@ -244,26 +287,27 @@ function renderPagination(pagination) {
     }
 
     let html = `
-        <button class="page-btn" ${page <= 1 ? 'disabled' : ''} onclick="goToPage(${page - 1})">
+        <button type="button" class="page-btn" ${page <= 1 ? 'disabled' : ''} data-page="${page - 1}">
             &larr; Prev
         </button>
     `;
 
     for (let i = 1; i <= totalPages; i++) {
         html += `
-            <button class="page-btn ${i === page ? 'active' : ''}" onclick="goToPage(${i})">
+            <button type="button" class="page-btn ${i === page ? 'active' : ''}" data-page="${i}">
                 ${i}
             </button>
         `;
     }
 
     html += `
-        <button class="page-btn" ${page >= totalPages ? 'disabled' : ''} onclick="goToPage(${page + 1})">
+        <button type="button" class="page-btn" ${page >= totalPages ? 'disabled' : ''} data-page="${page + 1}">
             Next &rarr;
         </button>
     `;
 
     container.innerHTML = html;
+}= html;
 }
 
 function goToPage(page) {
@@ -365,16 +409,16 @@ async function initProductDetailsPage() {
                     ${!isOutOfStock ? `
                         <div style="margin-bottom: 0.5rem; font-weight:600; font-size: 0.9rem;">Quantity:</div>
                         <div class="quantity-control">
-                            <button type="button" class="qty-btn" onclick="adjustQty(-1, ${p.stock})">-</button>
+                            <button type="button" class="qty-btn" id="qty-minus-btn" data-stock="${p.stock}">-</button>
                             <input type="number" id="detail-qty" class="qty-input" value="1" min="1" max="${p.stock}" readonly>
-                            <button type="button" class="qty-btn" onclick="adjustQty(1, ${p.stock})">+</button>
+                            <button type="button" class="qty-btn" id="qty-plus-btn" data-stock="${p.stock}">+</button>
                         </div>
                     ` : ''}
 
                     <div style="display:flex; gap:1rem; margin-top: 1rem;">
-                        <button class="btn btn-primary btn-lg" 
+                        <button type="button" class="btn btn-primary btn-lg" 
                                 id="detail-add-btn"
-                                onclick="addCurrentProductToCart(${p.id})"
+                                data-product-id="${p.id}"
                                 ${isOutOfStock ? 'disabled' : ''}>
                             ${isOutOfStock ? 'Currently Unavailable' : '🛒 Add to Cart'}
                         </button>
@@ -383,6 +427,20 @@ async function initProductDetailsPage() {
                 </div>
             </div>
         `;
+
+        const minusBtn = document.getElementById('qty-minus-btn');
+        const plusBtn = document.getElementById('qty-plus-btn');
+        const addBtn = document.getElementById('detail-add-btn');
+
+        if (minusBtn) {
+            minusBtn.addEventListener('click', () => adjustQty(-1, Number(minusBtn.dataset.stock)));
+        }
+        if (plusBtn) {
+            plusBtn.addEventListener('click', () => adjustQty(1, Number(plusBtn.dataset.stock)));
+        }
+        if (addBtn && !isOutOfStock) {
+            addBtn.addEventListener('click', () => addCurrentProductToCart(p.id));
+        }
     } catch (err) {
         detailContainer.innerHTML = `
             <div class="empty-state">

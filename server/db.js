@@ -31,21 +31,30 @@ function initSchema() {
 }
 
 /**
- * Seed database tables using seed.sql
+ * Seed database tables using seed.sql (restricted to development/testing)
  */
-function seedData() {
+function seedData(options = {}) {
+    if (process.env.NODE_ENV === 'production' && !options.forceInProduction) {
+        console.warn('⚠️ NOTICE: Auto-seeding of demo accounts and sample products is disabled in production mode.');
+        return false;
+    }
     const seedFile = path.resolve(__dirname, 'seed.sql');
     if (fs.existsSync(seedFile)) {
         const seedSql = fs.readFileSync(seedFile, 'utf8');
         db.exec(seedSql);
+        return true;
     }
+    return false;
 }
 
-// Auto-run schema and seed on initial connection if tables don't exist
+// Auto-run schema on initial connection if tables don't exist
 const tableCheck = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='users'").get();
 if (!tableCheck) {
     initSchema();
-    seedData();
+    // Only auto-seed demo accounts in development or test environments
+    if (process.env.NODE_ENV !== 'production') {
+        seedData();
+    }
 }
 
 module.exports = {

@@ -19,6 +19,33 @@ async function loadCart() {
     const container = document.getElementById('cart-container');
     if (!container) return;
 
+    if (!container.dataset.delegated) {
+        container.dataset.delegated = 'true';
+        container.addEventListener('click', (e) => {
+            const qtyBtn = e.target.closest('.action-cart-qty');
+            if (qtyBtn) {
+                const itemId = Number(qtyBtn.dataset.itemId);
+                const change = Number(qtyBtn.dataset.change);
+                const stock = Number(qtyBtn.dataset.stock);
+                const qtyInput = qtyBtn.parentElement.querySelector('.qty-input');
+                const currentQty = qtyInput ? (parseInt(qtyInput.value, 10) || 1) : 1;
+                updateItemQuantity(itemId, currentQty + change, stock);
+                return;
+            }
+            const removeBtn = e.target.closest('.action-remove-item');
+            if (removeBtn) {
+                const itemId = Number(removeBtn.dataset.itemId);
+                removeItem(itemId);
+                return;
+            }
+            const retryBtn = e.target.closest('.action-retry-cart');
+            if (retryBtn) {
+                loadCart();
+                return;
+            }
+        });
+    }
+
     container.innerHTML = `
         <div style="text-align: center; padding: 4rem;">
             <p>⏳ Loading your cart...</p>
@@ -74,16 +101,16 @@ async function loadCart() {
                     </td>
                     <td>
                         <div class="quantity-control" style="margin:0;">
-                            <button type="button" class="qty-btn" onclick="updateItemQuantity(${item.id}, ${item.quantity - 1}, ${item.available_stock})">-</button>
+                            <button type="button" class="qty-btn action-cart-qty" data-item-id="${item.id}" data-change="-1" data-stock="${item.available_stock}">-</button>
                             <input type="text" class="qty-input" value="${item.quantity}" readonly>
-                            <button type="button" class="qty-btn" onclick="updateItemQuantity(${item.id}, ${item.quantity + 1}, ${item.available_stock})">+</button>
+                            <button type="button" class="qty-btn action-cart-qty" data-item-id="${item.id}" data-change="1" data-stock="${item.available_stock}">+</button>
                         </div>
                     </td>
                     <td>
                         <span style="font-weight:700; color:var(--primary);">${formatRupees(item.line_total)}</span>
                     </td>
                     <td style="text-align:right;">
-                        <button class="btn btn-outline btn-sm" onclick="removeItem(${item.id})" title="Remove item">
+                        <button type="button" class="btn btn-outline btn-sm action-remove-item" data-item-id="${item.id}" title="Remove item">
                             🗑️
                         </button>
                     </td>
@@ -168,7 +195,7 @@ async function loadCart() {
                 <div class="empty-icon">⚠️</div>
                 <h3>Failed to load cart</h3>
                 <p>${escapeHtml(err.message)}</p>
-                <button class="btn btn-primary" onclick="loadCart()">Retry</button>
+                <button type="button" class="btn btn-primary action-retry-cart">Retry</button>
             </div>
         `;
     }

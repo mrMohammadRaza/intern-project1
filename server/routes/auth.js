@@ -5,31 +5,35 @@ const jwt = require('jsonwebtoken');
 const { db } = require('../db');
 const authenticateToken = require('../middleware/auth');
 const { isValidEmail, isValidPhone } = require('../middleware/validate');
-const { loginLimiter } = require('../middleware/rateLimiter');
+const { loginLimiter, registerLimiter } = require('../middleware/rateLimiter');
 
 /**
  * POST /api/auth/register
  * Public registration for customers only
  */
-router.post('/register', async (req, res) => {
+router.post('/register', registerLimiter.middleware('Too many registration attempts from this IP. Please try again later.'), async (req, res) => {
     try {
         const { name, email, password, phone, address } = req.body;
 
-        // Validation
-        if (!name || typeof name !== 'string' || name.trim().length < 2) {
-            return res.status(400).json({ error: 'Full name is required (minimum 2 characters).' });
+        // Strict Type & Bound Validation
+        if (!name || typeof name !== 'string' || name.trim().length < 2 || name.trim().length > 100) {
+            return res.status(400).json({ error: 'Full name is required (between 2 and 100 characters).' });
         }
 
-        if (!email || !isValidEmail(email)) {
-            return res.status(400).json({ error: 'A valid email address is required.' });
+        if (!email || typeof email !== 'string' || email.trim().length > 255 || !isValidEmail(email)) {
+            return res.status(400).json({ error: 'A valid email address is required (maximum 255 characters).' });
         }
 
-        if (!password || typeof password !== 'string' || password.length < 6) {
-            return res.status(400).json({ error: 'Password is required and must be at least 6 characters long.' });
+        if (!password || typeof password !== 'string' || password.length < 6 || password.length > 128) {
+            return res.status(400).json({ error: 'Password is required and must be at least 6 characters (up to 128 characters).' });
         }
 
         if (phone && !isValidPhone(phone)) {
             return res.status(400).json({ error: 'Please enter a valid 10-digit mobile number.' });
+        }
+
+        if (address && (typeof address !== 'string' || address.length > 500)) {
+            return res.status(400).json({ error: 'Address must be a string up to 500 characters.' });
         }
 
         // Verify JWT secret is configured before performing database mutations
@@ -93,8 +97,12 @@ router.post('/login', loginLimiter.middleware('Too many login attempts. Please t
     try {
         const { email, password } = req.body;
 
-        if (!email || !password) {
-            return res.status(400).json({ error: 'Email and password are required.' });
+        if (!email || typeof email !== 'string' || !password || typeof password !== 'string') {
+            return res.status(400).json({ error: 'Valid email and password strings are required.' });
+        }
+
+        if (email.trim().length === 0 || password.length === 0 || email.length > 255 || password.length > 128) {
+            return res.status(400).json({ error: 'Email and password length is invalid.' });
         }
 
         // Ensure JWT secret is configured

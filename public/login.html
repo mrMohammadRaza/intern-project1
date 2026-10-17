@@ -57,10 +57,10 @@
                 <div class="demo-account-box">
                     <strong>⚡ Quick-Fill Demo Credentials <span style="font-size:0.75rem; font-weight:600; color:var(--text-muted); background:var(--border-color); padding:0.15rem 0.4rem; border-radius:var(--radius-sm); margin-left:0.35rem;">DEVELOPMENT ONLY</span></strong>
                     <div class="demo-chips">
-                        <button type="button" class="chip-btn" onclick="fillCredentials('customer@shopeasy.com', 'Customer@123')">
+                        <button type="button" class="chip-btn" data-email="customer@shopeasy.com" data-password="Customer@123">
                             👤 Customer (Rahul Sharma)
                         </button>
-                        <button type="button" class="chip-btn" onclick="fillCredentials('admin@shopeasy.com', 'Admin@123')">
+                        <button type="button" class="chip-btn" data-email="admin@shopeasy.com" data-password="Admin@123">
                             👑 Admin (Admin User)
                         </button>
                     </div>
@@ -87,12 +87,16 @@
     <script src="/js/api.js"></script>
     <script src="/js/auth.js"></script>
     <script>
-        function fillCredentials(email, password) {
-            document.getElementById('login-email').value = email;
-            document.getElementById('login-password').value = password;
-        }
-
         document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('.chip-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const email = btn.dataset.email || '';
+                    const password = btn.dataset.password || '';
+                    document.getElementById('login-email').value = email;
+                    document.getElementById('login-password').value = password;
+                });
+            });
+
             const params = new URLSearchParams(window.location.search);
             if (params.get('session_expired')) {
                 const infoAlert = document.getElementById('login-info-alert');

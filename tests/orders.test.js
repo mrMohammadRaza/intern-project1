@@ -10,6 +10,9 @@ describe('Orders & Checkout API Tests', () => {
     let initialProductStock;
 
     beforeAll(async () => {
+        // Ensure consistent product inventory in test database
+        db.prepare('UPDATE products SET stock = 15, is_active = 1 WHERE id = 2').run();
+
         // Customer 1
         const custRes = await request(app)
             .post('/api/auth/login')

@@ -83,11 +83,37 @@ async function initAdminDashboard() {
  */
 let adminCategoriesList = [];
 let adminProductSearchDebounce = null;
+const adminProductsCache = new Map();
+const adminCategoriesCache = new Map();
 
 async function initAdminProducts() {
     setupAdminProductFilters();
+    setupAdminProductTableEvents();
     await loadAdminCategories();
     await loadAdminProductsTable();
+}
+
+function setupAdminProductTableEvents() {
+    const tbody = document.getElementById('admin-products-tbody');
+    if (tbody && !tbody.dataset.delegated) {
+        tbody.dataset.delegated = 'true';
+        tbody.addEventListener('click', (e) => {
+            const editBtn = e.target.closest('.action-edit-prod');
+            if (editBtn) {
+                const id = Number(editBtn.dataset.id);
+                const prod = adminProductsCache.get(id);
+                if (prod) openEditProductModal(prod);
+                return;
+            }
+            const delBtn = e.target.closest('.action-delete-prod');
+            if (delBtn) {
+                const id = Number(delBtn.dataset.id);
+                const prod = adminProductsCache.get(id);
+                if (prod) deleteProduct(prod.id, prod.name);
+                return;
+            }
+        });
+    }
 }
 
 function setupAdminProductFilters() {
@@ -186,6 +212,7 @@ async function loadAdminProductsTable() {
 
         let html = '';
         products.forEach(p => {
+            adminProductsCache.set(p.id, p);
             const fallbackImg = "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600";
             const imgUrl = p.image_url || fallbackImg;
             const isLowStock = p.stock > 0 && p.stock < 5;
@@ -218,10 +245,10 @@ async function loadAdminProductsTable() {
                     </td>
                     <td>
                         <div style="display:flex; gap:0.5rem;">
-                            <button class="btn btn-outline btn-sm" onclick="openEditProductModal(${JSON.stringify(p).replace(/"/g, '&quot;')})">
+                            <button type="button" class="btn btn-outline btn-sm action-edit-prod" data-id="${p.id}">
                                 ✏️ Edit
                             </button>
-                            <button class="btn btn-danger btn-sm" onclick="deleteProduct(${p.id}, '${escapeHtml(p.name)}')">
+                            <button type="button" class="btn btn-danger btn-sm action-delete-prod" data-id="${p.id}">
                                 🗑️ Remove
                             </button>
                         </div>
@@ -361,7 +388,29 @@ async function deleteProduct(productId, productName) {
  */
 async function initAdminOrders() {
     setupAdminOrderFilters();
+    setupAdminOrderTableEvents();
     await loadAdminOrders();
+}
+
+function setupAdminOrderTableEvents() {
+    const tbody = document.getElementById('admin-orders-tbody');
+    if (tbody && !tbody.dataset.delegated) {
+        tbody.dataset.delegated = 'true';
+        tbody.addEventListener('change', (e) => {
+            const select = e.target.closest('.action-order-status');
+            if (select) {
+                const orderId = Number(select.dataset.orderId);
+                updateOrderStatus(orderId, select.value);
+            }
+        });
+        tbody.addEventListener('click', (e) => {
+            const viewBtn = e.target.closest('.action-view-order');
+            if (viewBtn) {
+                const orderId = Number(viewBtn.dataset.orderId);
+                viewOrderDetails(orderId);
+            }
+        });
+    }
 }
 
 function setupAdminOrderFilters() {
@@ -430,8 +479,8 @@ async function loadAdminOrders() {
                     </td>
                     <td><strong>${formatRupees(o.total_amount)}</strong></td>
                     <td>
-                        <select class="select-custom" style="padding:0.4rem 1.8rem 0.4rem 0.6rem; font-size:0.85rem;" 
-                                onchange="updateOrderStatus(${o.id}, this.value)"
+                        <select class="select-custom action-order-status" style="padding:0.4rem 1.8rem 0.4rem 0.6rem; font-size:0.85rem;" 
+                                data-order-id="${o.id}"
                                 ${isDelivered || isCancelled ? 'disabled title="Final state cannot be changed"' : ''}>
                             <option value="Placed" ${o.status === 'Placed' ? 'selected' : ''}>Placed</option>
                             <option value="Shipped" ${o.status === 'Shipped' ? 'selected' : ''}>Shipped</option>
@@ -440,7 +489,7 @@ async function loadAdminOrders() {
                         </select>
                     </td>
                     <td>
-                        <button class="btn btn-outline btn-sm" onclick="viewOrderDetails(${o.id})">
+                        <button type="button" class="btn btn-outline btn-sm action-view-order" data-order-id="${o.id}">
                             🔍 Details
                         </button>
                     </td>
@@ -475,9 +524,33 @@ async function updateOrderStatus(orderId, newStatus) {
  * ----------------------------------------------------
  */
 async function openCategoriesModal() {
+    setupAdminCategoryModalEvents();
     const modal = document.getElementById('categories-modal');
     if (modal) modal.classList.add('open');
     await renderCategoriesModalTable();
+}
+
+function setupAdminCategoryModalEvents() {
+    const tbody = document.getElementById('admin-categories-tbody');
+    if (tbody && !tbody.dataset.delegated) {
+        tbody.dataset.delegated = 'true';
+        tbody.addEventListener('click', (e) => {
+            const editBtn = e.target.closest('.action-edit-cat');
+            if (editBtn) {
+                const id = Number(editBtn.dataset.id);
+                const cat = adminCategoriesCache.get(id);
+                if (cat) handleEditCategory(cat.id, cat.name);
+                return;
+            }
+            const delBtn = e.target.closest('.action-delete-cat');
+            if (delBtn) {
+                const id = Number(delBtn.dataset.id);
+                const cat = adminCategoriesCache.get(id);
+                if (cat) handleDeleteCategory(cat.id, cat.name);
+                return;
+            }
+        });
+    }
 }
 
 function closeCategoriesModal() {
@@ -503,6 +576,7 @@ async function renderCategoriesModalTable() {
 
         let html = '';
         categories.forEach(cat => {
+            adminCategoriesCache.set(cat.id, cat);
             html += `
                 <tr>
                     <td><strong>#${cat.id}</strong></td>
@@ -510,10 +584,10 @@ async function renderCategoriesModalTable() {
                     <td><span class="status-badge status-placed">${cat.product_count} active product(s)</span></td>
                     <td style="text-align:right;">
                         <div style="display:inline-flex; gap:0.5rem;">
-                            <button class="btn btn-outline btn-sm" onclick="handleEditCategory(${cat.id}, '${escapeHtml(cat.name)}')">
+                            <button type="button" class="btn btn-outline btn-sm action-edit-cat" data-id="${cat.id}">
                                 ✏️ Edit
                             </button>
-                            <button class="btn btn-danger btn-sm" onclick="handleDeleteCategory(${cat.id}, '${escapeHtml(cat.name)}')">
+                            <button type="button" class="btn btn-danger btn-sm action-delete-cat" data-id="${cat.id}">
                                 🗑️ Delete
                             </button>
                         </div>

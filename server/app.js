@@ -8,17 +8,60 @@ const { db } = require('./db');
 
 const app = express();
 
-// Security and parser middleware
-app.use(cors());
+// Configure Express proxy trust safely for deployment topology
+if (process.env.TRUST_PROXY) {
+    const trustValue = process.env.TRUST_PROXY.trim();
+    if (trustValue === 'true') {
+        app.set('trust proxy', true);
+    } else if (trustValue === 'false') {
+        app.set('trust proxy', false);
+    } else if (/^\d+$/.test(trustValue)) {
+        app.set('trust proxy', parseInt(trustValue, 10));
+    } else {
+        app.set('trust proxy', trustValue);
+    }
+} else {
+    // Safe default: do not trust unverified upstream proxy headers
+    app.set('trust proxy', false);
+}
+
+// CORS configuration (restricted in production, permissive in development/testing)
+const corsOptions = {
+    origin: (origin, callback) => {
+        if (!origin || process.env.NODE_ENV !== 'production') {
+            return callback(null, true);
+        }
+        const allowedOrigins = process.env.CORS_ORIGIN
+            ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
+            : [`http://localhost:${process.env.PORT || 3000}`];
+        if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+        return callback(new Error('CORS policy: Access denied for this origin.'));
+    },
+    credentials: true
+};
+app.use(cors(corsOptions));
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
-// HTTP Security Headers
+// HTTP Security Headers & Content Security Policy (CSP)
 app.use((req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('X-XSS-Protection', '1; mode=block');
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader(
+        'Content-Security-Policy',
+        "default-src 'self'; " +
+        "script-src 'self' 'unsafe-inline'; " +
+        "style-src 'self' 'unsafe-inline'; " +
+        "img-src 'self' data: https://images.unsplash.com; " +
+        "connect-src 'self'; " +
+        "font-src 'self'; " +
+        "object-src 'none'; " +
+        "base-uri 'self';"
+    );
     next();
 });
 

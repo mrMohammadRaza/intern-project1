@@ -11,10 +11,9 @@ class RateLimiter {
     }
 
     getKey(req) {
-        // Use client IP address
-        const forwarded = req.headers['x-forwarded-for'];
-        const ip = forwarded ? forwarded.split(',')[0].trim() : (req.socket.remoteAddress || '127.0.0.1');
-        return ip;
+        // Use trusted client IP determined by Express based on configured proxy topology.
+        // Never blindly parse client-supplied x-forwarded-for headers!
+        return req.ip || (req.socket && req.socket.remoteAddress) || '127.0.0.1';
     }
 
     middleware(customMessage = 'Too many requests. Please try again later.', checkInTest = false) {

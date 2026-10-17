@@ -369,4 +369,89 @@ describe('Orders & Checkout API Tests', () => {
         const p2AfterCancel2 = db.prepare('SELECT stock FROM products WHERE id = 2').get();
         expect(p2AfterCancel2.stock).toBe(p2Initial.stock);
     });
+
+    test('Regression: Checkout rollback on stock conflict restores state and does not create order or clear cart', async () => {
+        // Customer adds item with stock 3 to cart
+        await request(app)
+            .post('/api/cart')
+            .set('Authorization', `Bearer ${customerToken}`)
+            .send({ product_id: 3, quantity: 2 });
+
+        // Count existing orders before attempt
+        const ordersBefore = db.prepare('SELECT COUNT(*) as count FROM orders').get().count;
+
+        // Force a stock conflict right before checkout: reduce product 3 stock to 1
+        db.prepare('UPDATE products SET stock = 1 WHERE id = 3').run();
+
+        const res = await request(app)
+            .post('/api/orders')
+            .set('Authorization', `Bearer ${customerToken}`)
+            .send({
+                shipping_name: 'Rollback Tester',
+                shipping_phone: '9812345678',
+                shipping_address: '42 Palm Avenue, Indiranagar',
+                shipping_city: 'Bengaluru',
+                shipping_pincode: '560038'
+            });
+
+        expect(res.status).toBe(409);
+        expect(res.body.error).toMatch(/insufficient stock/i);
+
+        // Verify NO order was created in DB
+        const ordersAfter = db.prepare('SELECT COUNT(*) as count FROM orders').get().count;
+        expect(ordersAfter).toBe(ordersBefore);
+
+        // Verify cart items are NOT deleted
+        const cartRes = await request(app)
+            .get('/api/cart')
+            .set('Authorization', `Bearer ${customerToken}`);
+        expect(cartRes.body.items.some(i => i.product_id === 3)).toBe(true);
+
+        // Restore product 3 stock
+        db.prepare('UPDATE products SET stock = 12 WHERE id = 3').run();
+        // Clear customer cart
+        const custUser = db.prepare("SELECT id FROM users WHERE email = 'customer@shopeasy.com'").get();
+        db.prepare('DELETE FROM cart_items WHERE user_id = ?').run(custUser.id);
+    });
+
+    test('Regression: Safe checkout errors do not leak SQL, stack traces, or internal paths', async () => {
+        // Add valid item to cart
+        await request(app)
+            .post('/api/cart')
+            .set('Authorization', `Bearer ${customerToken}`)
+            .send({ product_id: 1, quantity: 1 });
+
+        // Temporarily spy on/mock db.transaction to throw an internal database error
+        const originalTransaction = db.transaction;
+        db.transaction = () => {
+            return () => {
+                throw new Error('SQLITE_ERROR: near "SYNTAX_ERROR": syntax error at /var/app/internal/db.sqlite');
+            };
+        };
+
+        try {
+            const res = await request(app)
+                .post('/api/orders')
+                .set('Authorization', `Bearer ${customerToken}`)
+                .send({
+                    shipping_name: 'Safe Error Tester',
+                    shipping_phone: '9812345678',
+                    shipping_address: '42 Palm Avenue',
+                    shipping_city: 'Bengaluru',
+                    shipping_pincode: '560038'
+                });
+
+            expect(res.status).toBe(500);
+            expect(res.body.error).toBe('Unable to complete checkout. Please review your cart and try again.');
+            // Crucial: Client response MUST NOT leak SQL, SQLite keywords, or paths
+            const rawBody = JSON.stringify(res.body);
+            expect(rawBody).not.toMatch(/SQLITE/i);
+            expect(rawBody).not.toMatch(/SYNTAX_ERROR/i);
+            expect(rawBody).not.toMatch(/\/var\/app/i);
+        } finally {
+            db.transaction = originalTransaction;
+            const custUser = db.prepare("SELECT id FROM users WHERE email = 'customer@shopeasy.com'").get();
+            db.prepare('DELETE FROM cart_items WHERE user_id = ?').run(custUser.id);
+        }
+    });
 });

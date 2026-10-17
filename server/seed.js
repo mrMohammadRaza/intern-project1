@@ -12,4 +12,5 @@ const categoryCount = db.prepare('SELECT COUNT(*) as count FROM categories').get
 const productCount = db.prepare('SELECT COUNT(*) as count FROM products').get().count;
 
 console.log(`Summary: ${userCount} users, ${categoryCount} categories, ${productCount} products.`);
+console.log('NOTICE: Seeded credentials are for LOCAL DEVELOPMENT & TESTING ONLY.');
 console.log('Database initialization completed.');

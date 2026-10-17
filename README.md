@@ -217,13 +217,13 @@ erDiagram
 5. **`orders`**: `id`, `user_id` (FK), `total_amount` (in paise), `status` (Placed | Shipped | Delivered | Cancelled), `shipping_name`, `shipping_phone`, `shipping_address`, `shipping_city`, `shipping_pincode`, `payment_method`, `created_at`.
 6. **`order_items`**: `id`, `order_id` (FK), `product_id` (FK), `quantity`, `unit_price` (in paise, captured at purchase time).
 
-Detailed entity documentation: see [docs/er-diagram.md](file:///c:/Users/lenovo/OneDrive/Desktop/Intern%20project1/docs/er-diagram.md).
+Detailed entity documentation: see [docs/er-diagram.md](docs/er-diagram.md).
 
 ---
 
 ## 9. API Reference Overview
 
-Detailed REST API specifications are documented in [docs/api-docs.md](file:///c:/Users/lenovo/OneDrive/Desktop/Intern%20project1/docs/api-docs.md).
+Detailed REST API specifications are documented in [docs/api-docs.md](docs/api-docs.md).
 
 | Method | Endpoint | Access | Description |
 | :--- | :--- | :--- | :--- |
@@ -267,11 +267,11 @@ npm.cmd test
 ```
 
 ### Verified Test Suite Results:
-- **Total Tests:** 65 passed (4 test suites, 0 failures, 100% passing)
+- **Total Tests:** 67 passed (4 test suites, 0 failures, 100% passing)
   - `tests/auth.test.js`: Registration validation, missing JWT secret fail-safe protection, email uniqueness conflict, rate limiting, token verification, role escalation prevention, customer vs admin access controls.
   - `tests/products.test.js`: Search, pagination (8/page), category filters, price sorting, strict integer validation for IDs and pagination params, inactive product isolation, admin product & category CRUD.
   - `tests/cart.test.js`: Customer authentication enforcement, admin shopping restriction, quantity increment/decrement, stock overflow rejection, cart isolation between customers, item deletion.
-  - `tests/orders.test.js`: Atomic checkout transaction, empty cart prevention, input validation (names, Indian phone, PIN codes), inventory deduction, cart clearing, order ownership enforcement, idempotent order cancellation with single stock restoration, and admin order lifecycle state transitions.
+  - `tests/orders.test.js`: Atomic checkout transaction, empty cart prevention, input validation (names, Indian phone, PIN codes), inventory deduction, cart clearing, order ownership enforcement, idempotent order cancellation with single stock restoration, admin order lifecycle state transitions, checkout rollback on stock conflicts, and safe checkout error sanitization.
 
 ---
 

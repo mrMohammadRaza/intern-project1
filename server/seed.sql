@@ -1,8 +1,13 @@
 -- ============================================================
 -- ShopEasy Seed Data
--- Passwords:
---   admin@shopeasy.com -> Admin@123
---   customer@shopeasy.com -> Customer@123
+-- NOTICE: The seeded accounts below are strictly for LOCAL
+-- DEVELOPMENT & AUTOMATED TESTING ONLY. Never use these
+-- credentials in production environments.
+--
+-- Demo Accounts (Development Only):
+--   admin@shopeasy.com    -> Admin@123    (Role: admin)
+--   customer@shopeasy.com -> Customer@123 (Role: customer)
+--
 -- Prices are stored in paise (1 Rupee = 100 paise)
 -- ============================================================
 
